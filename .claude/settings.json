@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/python -c \"import app.models; import app.services.pricing, app.services.matching, app.services.ride, app.services.driver, app.services.admin, app.services.auth, app.services.otp, app.services.location, app.services.geo; print\\('services import OK'\\)\")",
+      "Bash(.venv/bin/python -m pip install -q asyncpg)",
+      "Bash(.venv/bin/python -c \"import asyncpg; print\\('asyncpg', asyncpg.__version__\\)\")",
+      "Bash(.venv/bin/python -c \"import app.models, app.services.pricing, app.services.matching, app.services.ride, app.services.driver, app.services.admin, app.services.auth, app.services.otp, app.services.location, app.services.geo, app.api.auth, app.api.driver, app.api.rides, app.api.payments, app.api.admin, app.websockets.routes; print\\('ALL IMPORTS OK'\\)\")",
+      "Bash(.venv/bin/python -m pip install -q fastapi \"python-jose[cryptography]\" httpx)",
+      "Bash(.venv/bin/python -c \"import app.models, app.services.pricing, app.services.matching, app.services.ride, app.services.driver, app.services.admin, app.services.auth, app.services.otp, app.services.location, app.services.geo, app.api.auth, app.api.driver, app.api.rides, app.api.payments, app.api.admin, app.websockets.routes, main; print\\('ALL IMPORTS OK'\\)\")",
+      "Bash(.venv/bin/python -m pytest -q)",
+      "Bash(.venv/bin/python -c ' *)",
+      "Bash(.venv/bin/python -m compileall -q app main.py scripts alembic)",
+      "Read(//Library/Frameworks/Python.framework/Versions/3.14/bin/**)",
+      "Bash(.venv/bin/python --version)",
+      "Bash(brew install *)",
+      "Bash(brew services *)",
+      "Read(//opt/homebrew/Cellar/postgresql@16/16.14/bin/**)",
+      "Bash(grep -E '^\\(createdb|psql|pg_ctl\\)$')",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/postgres --version)",
+      "Bash(/opt/homebrew/bin/redis-cli ping *)",
+      "Bash(/opt/homebrew/bin/redis-server --daemonize yes)",
+      "Bash(/opt/homebrew/opt/postgresql@17/bin/pg_ctl -D /opt/homebrew/var/postgresql@17 -o '-p 5433' -l /opt/homebrew/var/postgresql@17/server.log start)",
+      "Bash(.venv/bin/python -c \"from main import app; print\\('rides-daily route present:', any\\('/admin/stats/rides-daily' in r.path for r in app.routes\\)\\)\")",
+      "Bash(.venv/bin/python -c \"from main import app; print\\('rides-daily route present:', '/admin/stats/rides-daily' in app.openapi\\(\\)['paths']\\)\")",
+      "Bash(DEBUG=false .venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --log-level warning)",
+      "Bash(npm --version)",
+      "Read(//Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/**)",
+      "Bash(/Users/a1234/Library/Android/sdk/emulator/emulator -list-avds)",
+      "Bash(ps -eo rss,comm,args)",
+      "Bash(awk '{printf \"%.0f MB  %s\\\\n\", $1/1024, $2}')",
+      "Bash(ps -eo rss,args)",
+      "Bash(awk '{s+=$1} END {printf \"%.0f MB total across %d procs\\\\n\", s/1024, NR}')",
+      "Bash(ps -eo rss,comm)",
+      "Bash(awk '{printf \"%.0f MB\\\\n\", $1/1024}')",
+      "Bash(redis-cli info *)",
+      "Bash(/opt/homebrew/opt/postgresql@17/bin/psql -p 5433 -U a1234 -d buxoro_taxi -tAc \"SELECT pg_size_pretty\\(pg_database_size\\('buxoro_taxi'\\)\\);\")"
+    ]
+  }
+}

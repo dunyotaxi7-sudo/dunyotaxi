@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p app/core app/models app/schemas app/api app/services app/websockets alembic/versions tests && find app alembic tests -type d | sort)",
+      "Bash(python3 -m venv .venv)",
+      "Bash(.venv/bin/python -m pip install -q --upgrade pip)",
+      "Bash(.venv/bin/python -m pip install -q \"sqlalchemy[asyncio]\" geoalchemy2 pydantic pydantic-settings redis fakeredis pytest pytest-asyncio)"
+    ],
+    "additionalDirectories": [
+      "/Users/a1234/Desktop/Bukhara-taxi/app"
+    ]
+  }
+}
