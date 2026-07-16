@@ -39,6 +39,13 @@ class Settings(BaseSettings):
     # real code can never leak. Defaults off — production-safe.
     otp_debug_return: bool = False
 
+    # CORS — comma-separated origins. "*" is fine for local dev; production
+    # must name the admin panel's origin (credentials + "*" is unsafe).
+    cors_origins_raw: str = Field(
+        default="*",
+        validation_alias=AliasChoices("CORS_ORIGINS", "cors_origins_raw"),
+    )
+
     # Matching — stored as a raw CSV string; parsed via the property below.
     match_radii_meters_raw: str = Field(
         default="3000,5000,8000",
@@ -75,6 +82,10 @@ class Settings(BaseSettings):
     otp_max_per_phone_hour: int = 5
     otp_max_per_phone_day: int = 10
     otp_max_per_ip_hour: int = 20
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins_raw.split(",") if o.strip()]
 
     @property
     def match_radii_meters(self) -> list[int]:

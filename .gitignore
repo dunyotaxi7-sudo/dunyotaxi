@@ -10,6 +10,11 @@
 # ── Driver documents (uploaded passports / car photos) ─
 uploads/
 
+# ── Runtime data ──────────────────────────────────────
+# Redis snapshot — contains live OTP hashes / driver positions.
+dump.rdb
+*.rdb
+
 # ── Python / backend ──────────────────────────────────
 __pycache__/
 *.py[cod]

@@ -1,0 +1,71 @@
+# Rendered by nginx:alpine (envsubst) — ${DOMAIN} comes from docker-compose.
+#
+# Everything proxies to the API. Two settings here are load-bearing:
+#   * the Upgrade/Connection pair — without it the driver GPS socket and the
+#     admin live-orders board silently fail to connect;
+#   * X-Real-IP — the API reads it for per-IP OTP rate limiting. nginx sets it
+#     from the true peer and overwrites any client-supplied value, so it can't
+#     be spoofed.
+
+# WebSocket upgrade: "upgrade" when the client asks, else "close".
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${DOMAIN};
+
+    # Let's Encrypt HTTP-01 challenge — must stay reachable over plain HTTP.
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name ${DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    # Driver documents are up to 10 MB; nginx defaults to 1 MB, which would
+    # reject every upload with a 413.
+    client_max_body_size 12m;
+
+    # Basic hardening.
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+
+    location / {
+        proxy_pass http://api:8000;
+        proxy_http_version 1.1;
+
+        # WebSockets (/ws/driver/location, /ws/passenger/rides, /ws/admin).
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Long-lived sockets: drivers stream GPS for a whole shift.
+        proxy_read_timeout  3600s;
+        proxy_send_timeout  3600s;
+        proxy_buffering     off;
+    }
+}

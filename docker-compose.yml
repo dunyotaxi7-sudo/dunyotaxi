@@ -1,0 +1,92 @@
+# Production stack: Postgres+PostGIS, Redis, API, Nginx (HTTPS), Certbot.
+# Works identically on Hetzner or an Uzbek VPS.
+#
+#   cp .env.production.example .env.production   # fill it in
+#   docker compose up -d
+#
+# See DEPLOYMENT.md for the full walkthrough (certificates, migrations, seed).
+
+services:
+  db:
+    # PostGIS image, not plain postgres — the app uses GEOGRAPHY columns and
+    # ST_* functions. The extension is created automatically on first boot.
+    image: postgis/postgis:17-3.4
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    # No `ports:` — the database is only reachable inside this network.
+
+  redis:
+    image: redis:7-alpine
+    # appendonly so OTPs/driver positions survive a restart.
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    build: .
+    env_file: .env.production
+    environment:
+      # Point at the compose services, overriding whatever's in .env.production.
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      # Driver documents must outlive the container.
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    # ⚠️ Exactly ONE replica. WebSocket connections and in-flight ride dispatch
+    # loops live in this process's memory — a second replica would silently drop
+    # offers. See DEPLOYMENT.md → Scaling.
+    # No `ports:` — only nginx talks to it.
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx:/etc/nginx/templates:ro
+      - certbot_conf:/etc/letsencrypt:ro
+      - certbot_www:/var/www/certbot:ro
+    environment:
+      # nginx:alpine renders /etc/nginx/templates/*.template with envsubst.
+      DOMAIN: ${DOMAIN}
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    # Try to renew twice a day; certbot only acts when a cert is near expiry.
+    entrypoint: /bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done'
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  redis_data:
+  uploads:
+  certbot_conf:
+  certbot_www:

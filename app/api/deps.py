@@ -63,6 +63,17 @@ async def get_current_driver(
 
 
 def client_ip(request) -> str | None:
+    """The caller's real IP.
+
+    Behind our nginx the socket peer is the proxy, so every user would look like
+    one IP and share the per-IP OTP limit. nginx sets ``X-Real-IP`` from the true
+    peer ($remote_addr) and *overwrites* any client-supplied value, so it can't
+    be spoofed — unlike X-Forwarded-For, which nginx appends to. The API port is
+    never published, so nginx is the only path in.
+    """
+    real = request.headers.get("x-real-ip")
+    if real:
+        return real.strip()
     if request.client:
         return request.client.host
     return None

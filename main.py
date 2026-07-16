@@ -72,7 +72,8 @@ async def _outside_service_area(request: Request, exc: OutsideServiceArea):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten for production (admin panel origin)
+    # Dev defaults to "*"; production sets CORS_ORIGINS to the admin origin.
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
