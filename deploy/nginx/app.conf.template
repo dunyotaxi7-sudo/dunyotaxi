@@ -7,6 +7,11 @@
 #     from the true peer and overwrites any client-supplied value, so it can't
 #     be spoofed.
 
+# Some nginx builds default server_names_hash_bucket_size to 32, too small to
+# hash even a single server_name here → "[emerg] could not build
+# server_names_hash". Bump it so nginx starts.
+server_names_hash_bucket_size 64;
+
 # WebSocket upgrade: "upgrade" when the client asks, else "close".
 map $http_upgrade $connection_upgrade {
     default upgrade;
