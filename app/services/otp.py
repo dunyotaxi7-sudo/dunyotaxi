@@ -98,14 +98,21 @@ async def request_otp(
     """
     await _enforce_limits(r, phone, ip)
 
-    code = generate_code()
-    text = settings.otp_message_template.format(code=code)
-    try:
-        await sms_service.send(r, phone, text)
-    except sms_service.SMSError as e:
-        # Never log the code itself.
-        log.error("otp delivery failed for %s: %s", phone, e)
-        raise OTPDeliveryFailed(str(e)) from e
+    # Allow-listed test numbers (store reviewers / QA) get a fixed code and no
+    # SMS. Everything else — hashing, TTL, attempt limits — stays identical.
+    fixed = settings.otp_test_phones.get(phone)
+    if fixed is not None:
+        log.warning("otp: test-phone allowlist hit for %s — no SMS sent", phone)
+        code = fixed
+    else:
+        code = generate_code()
+        text = settings.otp_message_template.format(code=code)
+        try:
+            await sms_service.send(r, phone, text)
+        except sms_service.SMSError as e:
+            # Never log the code itself.
+            log.error("otp delivery failed for %s: %s", phone, e)
+            raise OTPDeliveryFailed(str(e)) from e
 
     # Only store/start the cooldown once the SMS is actually away.
     await r.set(otp_key(phone), _hash(code), ex=settings.otp_ttl_seconds)

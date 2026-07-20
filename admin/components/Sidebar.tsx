@@ -30,7 +30,7 @@ export function Sidebar() {
           B
         </div>
         <div className="leading-tight">
-          <div className="font-semibold text-[15px]">Bukhara Taxi</div>
+          <div className="font-semibold text-[15px]">Dunyo Taxi</div>
           <div className="text-[11px] text-muted">Boshqaruv paneli</div>
         </div>
       </div>

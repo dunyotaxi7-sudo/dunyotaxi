@@ -64,7 +64,7 @@ export async function startBackgroundLocation(): Promise<boolean> {
     showsBackgroundLocationIndicator: false,
     foregroundService: {
       notificationTitle: "Siz onlaynsiz",
-      notificationBody: "Buxoro Taxi joylashuvingizni kuzatmoqda",
+      notificationBody: "Dunyo Taxi joylashuvingizni kuzatmoqda",
       notificationColor: "#2563eb",
     },
   });

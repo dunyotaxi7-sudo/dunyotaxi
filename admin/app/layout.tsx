@@ -3,8 +3,8 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "Bukhara Taxi — Boshqaruv paneli",
-  description: "Bukhara Taxi xizmati uchun boshqaruv paneli",
+  title: "Dunyo Taxi — Boshqaruv paneli",
+  description: "Dunyo Taxi xizmati uchun boshqaruv paneli",
 };
 
 export default function RootLayout({

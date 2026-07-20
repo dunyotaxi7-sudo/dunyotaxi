@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     )
 
     # App
-    app_name: str = "Bukhara Taxi"
+    app_name: str = "Dunyo Taxi"
     environment: str = "development"
     debug: bool = True
 
@@ -28,8 +28,11 @@ class Settings(BaseSettings):
     # JWT
     jwt_secret: str = "change-me"
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 43200
-    refresh_token_expire_minutes: int = 129600
+    # Short-lived access token: a stolen one is only useful for an hour. The
+    # clients auto-refresh on 401, so users aren't logged out. Don't raise this
+    # back up — the long-lived refresh token is what keeps sessions alive.
+    access_token_expire_minutes: int = 60
+    refresh_token_expire_minutes: int = 129600  # 90 days
 
     # OTP
     otp_ttl_seconds: int = 120
@@ -74,7 +77,7 @@ class Settings(BaseSettings):
     eskiz_token: str = ""
     eskiz_from: str = "4546"  # approved sender id
     otp_message_template: str = (
-        "Buxoro Taxi: tasdiqlash kodi {code}. Kodni hech kimga bermang."
+        "Dunyo Taxi: tasdiqlash kodi {code}. Kodni hech kimga bermang."
     )
 
     # OTP abuse limits (SMS costs money and spamming a number is harassment).
@@ -83,9 +86,32 @@ class Settings(BaseSettings):
     otp_max_per_phone_day: int = 10
     otp_max_per_ip_hour: int = 20
 
+    # Test phones — "PHONE:CODE,PHONE:CODE". These skip SMS entirely and always
+    # accept the fixed code. Needed because Play/App Store reviewers cannot
+    # receive an Uzbek SMS. Empty by default; keep the list tiny and rotate the
+    # codes after a review passes.
+    otp_test_phones_raw: str = Field(
+        default="",
+        validation_alias=AliasChoices("OTP_TEST_PHONES", "otp_test_phones_raw"),
+    )
+
     @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.cors_origins_raw.split(",") if o.strip()]
+
+    @property
+    def otp_test_phones(self) -> dict[str, str]:
+        """{phone: fixed_code} parsed from OTP_TEST_PHONES."""
+        out: dict[str, str] = {}
+        for pair in self.otp_test_phones_raw.split(","):
+            pair = pair.strip()
+            if not pair or ":" not in pair:
+                continue
+            phone, _, code = pair.partition(":")
+            phone, code = phone.strip(), code.strip()
+            if phone and code:
+                out[phone] = code
+        return out
 
     @property
     def match_radii_meters(self) -> list[int]:

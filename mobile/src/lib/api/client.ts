@@ -1,6 +1,6 @@
 import axios from "axios";
 import { API_URL } from "../config";
-import { memoToken } from "../storage";
+import { memoToken, tokenStorage, userStorage } from "../storage";
 import { t } from "../strings";
 
 export const api = axios.create({
@@ -18,18 +18,62 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// On 401 we notify a handler registered by the auth store, which clears the
-// session; the auth guard then redirects to login. Keeping routing out of here
-// avoids a circular dependency on the router/store.
+// When the session is truly gone we notify a handler registered by the auth
+// store, which clears it; the auth guard then redirects to login. Keeping
+// routing out of here avoids a circular dependency on the router/store.
 let onUnauthorized: (() => void) | null = null;
 export function setUnauthorizedHandler(fn: () => void) {
   onUnauthorized = fn;
 }
 
+/**
+ * Exchange the refresh token for a new pair. Uses a bare axios so it can't
+ * recurse through this interceptor. Shared promise: if several requests 401 at
+ * once we refresh once, not N times.
+ */
+let refreshing: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  const { refresh } = await tokenStorage.get();
+  if (!refresh) return null;
+  try {
+    const { data } = await axios.post(
+      `${API_URL}/auth/refresh`,
+      { refresh_token: refresh },
+      { timeout: 15000 },
+    );
+    await tokenStorage.set(data.access_token, data.refresh_token);
+    if (data.user) await userStorage.set(data.user);
+    memoToken.set(data.access_token);
+    return data.access_token as string;
+  } catch {
+    return null; // refresh expired / user blocked → caller signs out
+  }
+}
+
 api.interceptors.response.use(
   (res) => res,
-  (error) => {
-    if (error?.response?.status === 401) {
+  async (error) => {
+    const cfg = error?.config;
+    const isAuthCall = typeof cfg?.url === "string" && cfg.url.includes("/auth/");
+
+    // Access tokens are short-lived, so a 401 usually just means "expired".
+    // Refresh once and replay the request; only sign out if that fails.
+    if (error?.response?.status === 401 && cfg && !cfg._retry && !isAuthCall) {
+      cfg._retry = true;
+      refreshing =
+        refreshing ??
+        refreshAccessToken().finally(() => {
+          refreshing = null;
+        });
+      const token = await refreshing;
+      if (token) {
+        cfg.headers = cfg.headers ?? {};
+        cfg.headers.Authorization = `Bearer ${token}`;
+        return api(cfg);
+      }
+      onUnauthorized?.();
+    } else if (error?.response?.status === 401 && (isAuthCall || cfg?._retry)) {
       onUnauthorized?.();
     }
     return Promise.reject(error);

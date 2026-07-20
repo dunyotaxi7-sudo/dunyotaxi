@@ -131,24 +131,51 @@ curl -i -N -H "Connection: Upgrade" -H "Upgrade: websocket" \
 
 ## 7. Mobile → EAS
 
+Identity is already set (`app.json`): **Dunyo Taxi**, bundle **`uz.dunyotaxi.app`**.
+⚠️ The bundle id can never change once published.
+
 ```bash
 cd mobile
+npm install
 npx expo install expo-dev-client
-npx eas build:configure
+npx eas login
+npx eas init            # creates the EAS project + writes extra.eas.projectId
 ```
 
-Before building:
-- **Bundle id**: change `com.anonymous.mobile` → e.g. `uz.dunyotaxi.app`.
-- `EXPO_PUBLIC_API_URL=https://api.yourdomain.uz` (an EAS secret, not `.env`).
-- Push notifications need an EAS `projectId` — without one `registerForPush()`
-  returns null and drivers get no ride offers while backgrounded.
-- Store reviewers **cannot receive Uzbek SMS** — you'll need a test-phone
-  allowlist or a demo account before submitting.
+`eas init` is what makes **push notifications work** — `registerForPush()` returns
+null without a `projectId`, and drivers would get no ride offers while
+backgrounded.
+
+The Google Maps key is a real credential, so it lives in EAS secrets rather than
+the committed `eas.json` (`app.config.js` injects it into the native manifest at
+build time):
+
+```bash
+eas secret:create --name EXPO_PUBLIC_GOOGLE_MAPS_API_KEY --value "AIza..."
+```
+
+Edit the API URL in `eas.json` (`preview` + `production`) to your real domain,
+then:
 
 ```bash
 eas build -p android --profile production
 eas submit -p android
 ```
+
+### Store review needs a way in
+Reviewers **cannot receive an Uzbek SMS**, so they can't pass OTP. Give them a
+test number via the allowlist on the server:
+
+```
+OTP_TEST_PHONES=+998900000000:123456
+```
+
+Put that number + code in the Play Console / App Store "demo account" notes.
+Rotate the code after review passes.
+
+> Your local dev build was `com.anonymous.mobile` with scheme `mobile`. The new
+> id/scheme make it a *different app* — run `npx expo prebuild -p android --clean`
+> and `npx expo run:android` once to reinstall locally.
 
 ---
 

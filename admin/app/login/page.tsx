@@ -66,7 +66,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="card w-full max-w-sm p-8">
         <div className="mb-6 text-center">
-          <div className="text-2xl font-semibold">Bukhara Taxi</div>
+          <div className="text-2xl font-semibold">Dunyo Taxi</div>
           <div className="text-sm text-muted mt-1">Boshqaruv paneli</div>
         </div>
 

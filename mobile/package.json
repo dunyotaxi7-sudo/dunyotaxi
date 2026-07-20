@@ -7,6 +7,7 @@
     "@tanstack/react-query": "^5.101.2",
     "axios": "^1.18.1",
     "expo": "~57.0.4",
+    "expo-build-properties": "~57.0.5",
     "expo-constants": "~57.0.3",
     "expo-device": "~57.0.0",
     "expo-font": "~57.0.0",

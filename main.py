@@ -1,4 +1,4 @@
-"""Bukhara Taxi — FastAPI application entrypoint.
+"""Dunyo Taxi — FastAPI application entrypoint.
 
 Run locally:
     uvicorn main:app --reload

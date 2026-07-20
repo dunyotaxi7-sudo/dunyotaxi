@@ -39,7 +39,7 @@ export const t = {
   },
 
   login: {
-    brand: "Buxoro Taxi",
+    brand: "Dunyo Taxi",
     subtitle: "Kirish uchun telefon raqamingizni kiriting",
     phoneLabel: "Telefon raqam",
     sendCode: "Kodni yuborish",
