@@ -5,8 +5,8 @@ asyncpg==0.29.0          # async driver used by the app
 psycopg[binary]==3.1.19  # sync driver — Alembic migrations (settings.sync_database_url)
 alembic==1.13.1
 geoalchemy2==0.15.1
-shapely==2.1.2           # in-memory point-in-polygon for the service-area gate
-numpy>=2.0,<3            # shapely's ABI dep — pin so it doesn't drift to an incompatible major
+shapely==2.0.4           # in-memory point-in-polygon for the service-area gate
+numpy==1.26.4            # pinned to 1.26: numpy 2.x wheels require x86-64-v2 CPUs; the prod VPS is older. 2.0.4/1.26.4 share the numpy-1 ABI.
 pydantic==2.7.1
 pydantic-settings==2.3.0
 redis==5.0.4
