@@ -36,15 +36,35 @@ TaskManager.defineTask(DRIVER_LOCATION_TASK, async ({ data, error }) => {
   }
 });
 
+/** Why streaming couldn't start — the caller needs this to offer the right fix. */
+export type LocationStart =
+  | { ok: true }
+  /** Device location services are switched off entirely. */
+  | { ok: false; reason: "services-off" }
+  /** Denied, but the OS will still show the prompt next time we ask. */
+  | { ok: false; reason: "denied" }
+  /** Denied permanently — only the Settings app can grant it now. */
+  | { ok: false; reason: "blocked" };
+
 /**
  * Start streaming the driver's location (foreground + background). Requests
  * foreground and background permission; on Android runs a foreground service
  * with a persistent "Siz onlaynsiz" notification (required by the OS).
- * Returns false if foreground permission is denied.
+ *
+ * Distinguishes the failure modes because they need different fixes: services
+ * off needs the system location toggle, a permanent denial needs the app's
+ * settings page, and a plain denial just needs asking again next tap.
  */
-export async function startBackgroundLocation(): Promise<boolean> {
+export async function startBackgroundLocation(): Promise<LocationStart> {
+  // GPS switched off system-wide: permission could be granted and we'd still
+  // never get a fix, so check it before asking for anything.
+  const servicesOn = await Location.hasServicesEnabledAsync().catch(() => true);
+  if (!servicesOn) return { ok: false, reason: "services-off" };
+
   const fg = await Location.requestForegroundPermissionsAsync();
-  if (!fg.granted) return false;
+  if (!fg.granted) {
+    return { ok: false, reason: fg.canAskAgain ? "denied" : "blocked" };
+  }
   // Background permission may be denied — foreground service still works while
   // the app is open; we don't hard-fail on it.
   await Location.requestBackgroundPermissionsAsync().catch(() => undefined);
@@ -52,7 +72,7 @@ export async function startBackgroundLocation(): Promise<boolean> {
   const already = await Location.hasStartedLocationUpdatesAsync(
     DRIVER_LOCATION_TASK,
   ).catch(() => false);
-  if (already) return true;
+  if (already) return { ok: true };
 
   await Location.startLocationUpdatesAsync(DRIVER_LOCATION_TASK, {
     accuracy: Location.Accuracy.Balanced,
@@ -68,7 +88,7 @@ export async function startBackgroundLocation(): Promise<boolean> {
       notificationColor: "#2563eb",
     },
   });
-  return true;
+  return { ok: true };
 }
 
 export async function stopBackgroundLocation(): Promise<void> {

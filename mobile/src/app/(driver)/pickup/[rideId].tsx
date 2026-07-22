@@ -126,7 +126,7 @@ export default function DriverPickupScreen() {
         <View style={styles.actions}>
           <Pressable
             style={styles.navBtn}
-            onPress={() => openExternalNav(ride.from_lat, ride.from_lng, ride.from_address)}
+            onPress={() => void openExternalNav(ride.from_lat, ride.from_lng)}
           >
             <Text style={styles.navText}>🧭 {t.driver.pickup.navigation}</Text>
           </Pressable>

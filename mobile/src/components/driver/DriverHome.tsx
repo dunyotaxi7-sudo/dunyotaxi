@@ -1,7 +1,16 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { usePathname, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Alert, AppState, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  AppState,
+  Linking,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   BUKHARA_CENTER,
@@ -22,6 +31,36 @@ import { formatSom } from "@/lib/format";
 import { t } from "@/lib/strings";
 import type { DriverProfile } from "@/lib/types";
 import { colors, radius, spacing } from "@/theme/colors";
+
+/**
+ * Explain a failed location start and offer the one action that fixes it.
+ * A plain "grant permission" alert is a dead end once Android has stopped
+ * showing the prompt — the driver has to be sent to Settings.
+ */
+function promptForLocation(reason: "services-off" | "denied" | "blocked") {
+  const s = t.driver.home;
+  if (reason === "denied") {
+    // The OS will ask again on the next tap, so a plain nudge is enough.
+    Alert.alert(s.needLocationTitle, s.needLocation);
+    return;
+  }
+  const body = reason === "services-off" ? s.servicesOff : s.blocked;
+  Alert.alert(s.needLocationTitle, body, [
+    { text: t.common.cancel, style: "cancel" },
+    {
+      text: s.openSettings,
+      onPress: () => {
+        // Android can jump straight to the system location toggle; elsewhere
+        // (and for a blocked permission) the app's own settings page is right.
+        if (Platform.OS === "android" && reason === "services-off") {
+          void Linking.sendIntent("android.settings.LOCATION_SOURCE_SETTINGS");
+        } else {
+          void Linking.openSettings();
+        }
+      },
+    },
+  ]);
+}
 
 export function DriverHome({ driver }: { driver: DriverProfile }) {
   const insets = useSafeAreaInsets();
@@ -131,9 +170,9 @@ export function DriverHome({ driver }: { driver: DriverProfile }) {
   async function onToggle() {
     const next = !online;
     if (next) {
-      const ok = await startBackgroundLocation();
-      if (!ok) {
-        Alert.alert(t.driver.home.needLocation);
+      const res = await startBackgroundLocation();
+      if (!res.ok) {
+        promptForLocation(res.reason);
         return;
       }
     }

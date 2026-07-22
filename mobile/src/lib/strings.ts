@@ -235,6 +235,12 @@ export const t = {
       todayRides: "Bugungi sayohatlar",
       todayEarnings: "Bugungi daromad",
       needLocation: "Onlayn bo'lish uchun joylashuvga ruxsat bering.",
+      needLocationTitle: "Joylashuv kerak",
+      servicesOff:
+        "Qurilmada joylashuv (GPS) o'chirilgan. Buyurtma olish uchun uni yoqing.",
+      blocked:
+        "Joylashuvga ruxsat berilmagan. Sozlamalardan ruxsatni yoqing.",
+      openSettings: "Sozlamalarni ochish",
       statusError: "Holatni o'zgartirib bo'lmadi.",
     },
     offer: {

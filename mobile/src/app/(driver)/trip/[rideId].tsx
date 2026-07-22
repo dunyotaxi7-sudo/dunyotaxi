@@ -94,7 +94,7 @@ export default function DriverTripScreen() {
 
         <Pressable
           style={styles.navBtn}
-          onPress={() => openExternalNav(ride.to_lat, ride.to_lng, ride.to_address)}
+          onPress={() => void openExternalNav(ride.to_lat, ride.to_lng)}
         >
           <Text style={styles.navText}>🧭 {t.driver.pickup.navigation}</Text>
         </Pressable>
