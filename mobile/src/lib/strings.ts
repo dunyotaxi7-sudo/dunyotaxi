@@ -29,13 +29,7 @@ export const t = {
     passengerHint: "Taksi chaqirish",
     driver: "Haydovchi",
     driverHint: "Ishlab pul topish",
-    note: "Keyinchalik ilova ichida rejimni almashtirishingiz mumkin.",
-  },
-
-  mode: {
-    toDriver: "Haydovchi rejimi",
-    toPassenger: "Yo'lovchi rejimi",
-    becomeDriver: "Haydovchi bo'lish",
+    note: "Rolni o'zgartirish uchun hisobdan chiqing.",
   },
 
   login: {
@@ -177,8 +171,8 @@ export const t = {
     // failing with a 403 deeper in.
     adminBlocked: {
       title: "Admin hisobi",
-      body: "Admin hisobi haydovchi bo'la olmaydi. Haydovchi rejimidan foydalanish uchun boshqa hisobga kiring.",
-      back: "Yo'lovchi rejimiga qaytish",
+      body: "Admin hisobi haydovchi bo'la olmaydi. Haydovchi sifatida kirish uchun boshqa hisobdan foydalaning.",
+      back: "Chiqish",
     },
     register: {
       title: "Haydovchi bo'lish",

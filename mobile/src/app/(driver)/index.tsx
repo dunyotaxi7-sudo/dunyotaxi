@@ -20,7 +20,7 @@ import { colors, spacing } from "@/theme/colors";
  */
 export default function DriverGate() {
   const role = useAuth((s) => s.user?.role);
-  const setMode = useAuth((s) => s.setMode);
+  const signOut = useAuth((s) => s.signOut);
   // Admins are barred from driver registration server-side, so short-circuit
   // before querying — otherwise they'd sit on an unrecoverable error screen.
   const isAdmin = role === "admin";
@@ -43,7 +43,7 @@ export default function DriverGate() {
         <Text style={styles.notice}>{t.driver.adminBlocked.body}</Text>
         <Button
           title={t.driver.adminBlocked.back}
-          onPress={() => void setMode("passenger")}
+          onPress={() => void signOut()}
         />
       </SafeAreaView>
     );

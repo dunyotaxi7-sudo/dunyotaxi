@@ -16,7 +16,6 @@ import {
 import { ridesApi } from "@/lib/api/rides";
 import { Button } from "@/components/ui/Button";
 import { t } from "@/lib/strings";
-import { useAuth } from "@/store/auth";
 import { useRideDraft } from "@/store/ride";
 import { colors, radius, spacing } from "@/theme/colors";
 
@@ -25,7 +24,6 @@ export default function PassengerHome() {
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapHandle>(null);
   const location = useCurrentLocation();
-  const { user, setMode } = useAuth();
   const { from, to, setFrom } = useRideDraft();
 
   const center: Coords = location.coords ?? BUKHARA_CENTER;
@@ -94,16 +92,6 @@ export default function PassengerHome() {
         </Pressable>
         <Pressable style={styles.iconBtn} onPress={() => router.push("/history")}>
           <Text style={styles.iconTxt}>🕘</Text>
-        </Pressable>
-        {/* Same account can drive too — switching opens the driver app (and
-            walks newcomers through registration). */}
-        <Pressable
-          style={styles.modeBtn}
-          onPress={() => void setMode("driver")}
-        >
-          <Text style={styles.modeTxt}>
-            🚗 {user?.is_driver ? t.mode.toDriver : t.mode.becomeDriver}
-          </Text>
         </Pressable>
       </View>
 
@@ -227,20 +215,6 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   iconTxt: { fontSize: 18 },
-  modeBtn: {
-    height: 44,
-    paddingHorizontal: spacing(3),
-    borderRadius: 22,
-    backgroundColor: colors.bg,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  modeTxt: { fontSize: 13, fontWeight: "600", color: colors.primary },
   permBanner: {
     position: "absolute",
     left: spacing(4),

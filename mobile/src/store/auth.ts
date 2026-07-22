@@ -19,8 +19,6 @@ interface AuthState {
   signIn: (tokens: TokenPair, mode?: AppMode) => Promise<void>;
   /** Replace the cached user (e.g. after a profile edit). */
   updateUser: (user: UserPublic) => Promise<void>;
-  /** Switch between the passenger and driver apps. */
-  setMode: (mode: AppMode) => Promise<void>;
   /** Clear the session everywhere. */
   signOut: () => Promise<void>;
 }
@@ -62,11 +60,6 @@ export const useAuth = create<AuthState>((set, get) => ({
     const mode = get().mode === "driver" && !user.is_driver ? "passenger" : get().mode;
     if (mode !== get().mode) await modeStorage.set(mode);
     set({ user, mode });
-  },
-
-  setMode: async (mode) => {
-    await modeStorage.set(mode);
-    set({ mode });
   },
 
   signOut: async () => {

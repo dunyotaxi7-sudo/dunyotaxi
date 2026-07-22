@@ -27,7 +27,7 @@ export function DriverHome({ driver }: { driver: DriverProfile }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
-  const { signOut, setMode } = useAuth();
+  const { signOut } = useAuth();
   const mapRef = useRef<MapHandle>(null);
   const location = useCurrentLocation();
   const [online, setOnline] = useState(driver.is_online);
@@ -187,11 +187,6 @@ export function DriverHome({ driver }: { driver: DriverProfile }) {
           <MenuButton label={t.driver.menu.history} onPress={() => router.push("/history")} />
         </View>
 
-        {/* Same account can ride as a passenger too. */}
-        <Pressable style={styles.modeBtn} onPress={() => void setMode("passenger")}>
-          <Text style={styles.modeTxt}>🧍 {t.mode.toPassenger}</Text>
-        </Pressable>
-
         {wallet.data?.blocked ? (
           <Pressable style={styles.lowBalance} onPress={() => router.push("/wallet")}>
             <Text style={styles.lowBalanceText}>
@@ -283,14 +278,6 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 18, fontWeight: "700", color: colors.text },
   statLabel: { fontSize: 12, color: colors.muted, marginTop: 2 },
   menuRow: { flexDirection: "row", gap: spacing(2), marginTop: spacing(3) },
-  modeBtn: {
-    marginTop: spacing(2),
-    alignItems: "center",
-    paddingVertical: spacing(2),
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-  },
-  modeTxt: { fontSize: 13, fontWeight: "600", color: colors.primary },
   lowBalance: {
     marginTop: spacing(3),
     backgroundColor: "#fef2f2",

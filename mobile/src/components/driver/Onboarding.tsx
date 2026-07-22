@@ -27,7 +27,7 @@ const DOC_ORDER: DocType[] = [
 
 export function DriverOnboarding({ driver }: { driver: DriverProfile }) {
   const qc = useQueryClient();
-  const { signOut, setMode } = useAuth();
+  const { signOut } = useAuth();
   const [uploading, setUploading] = useState<Record<string, number | undefined>>({});
 
   const docsQuery = useQuery({
@@ -146,11 +146,6 @@ export function DriverOnboarding({ driver }: { driver: DriverProfile }) {
           <Text style={styles.checking}>{t.driver.pending.checking}</Text>
         </View>
 
-        {/* Waiting for approval? The same account can still ride meanwhile. */}
-        <Pressable onPress={() => void setMode("passenger")} style={styles.logout}>
-          <Text style={styles.switchText}>← {t.mode.toPassenger}</Text>
-        </Pressable>
-
         <Pressable onPress={() => void signOut()} style={styles.logout}>
           <Text style={styles.logoutText}>{t.driver.pending.logout}</Text>
         </Pressable>
@@ -200,5 +195,4 @@ const styles = StyleSheet.create({
   checking: { fontSize: 12, color: colors.muted, marginTop: spacing(2) },
   logout: { alignItems: "center", marginTop: spacing(6) },
   logoutText: { color: colors.muted, fontSize: 15 },
-  switchText: { color: colors.primary, fontSize: 15, fontWeight: "600" },
 });

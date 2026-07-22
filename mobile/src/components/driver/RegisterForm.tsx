@@ -22,7 +22,7 @@ import { colors, radius, spacing } from "@/theme/colors";
 const PLATE_RE = /^\d{2}\s?[A-Z]\s?\d{3}\s?[A-Z]{2}$/i;
 
 export function DriverRegisterForm({ onDone }: { onDone: () => void }) {
-  const { setMode } = useAuth();
+  const { signOut } = useAuth();
   const [carModel, setCarModel] = useState("");
   const [carNumber, setCarNumber] = useState("");
   const [carColor, setCarColor] = useState("");
@@ -96,12 +96,10 @@ export function DriverRegisterForm({ onDone }: { onDone: () => void }) {
             style={{ marginTop: spacing(4) }}
           />
 
-          {/* Escape hatch — the same account can just keep riding instead. */}
-          <Pressable
-            onPress={() => void setMode("passenger")}
-            style={styles.backToPassenger}
-          >
-            <Text style={styles.backToPassengerText}>← {t.mode.toPassenger}</Text>
+          {/* Escape hatch: there's no in-app mode switch, so backing out of
+              driver registration means signing out and choosing again. */}
+          <Pressable onPress={() => void signOut()} style={styles.backToPassenger}>
+            <Text style={styles.backToPassengerText}>{t.driver.pending.logout}</Text>
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
