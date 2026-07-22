@@ -35,9 +35,13 @@ async def get_driver_by_user(db: AsyncSession, user_id: uuid.UUID) -> Driver | N
 
 
 async def register_driver(db: AsyncSession, user: User, payload) -> Driver:
+    if user.role == "admin":
+        # Promoting an admin would revoke their panel access, but leaving the
+        # role alone would create a driver profile the role guards then reject —
+        # a half-registered account that can't be used or undone. Refuse both.
+        raise DriverError("admin accounts cannot register as drivers")
     if user.role == "passenger":
         # Promote a passenger account to driver on first registration.
-        # Never touch an admin — that would silently revoke their panel access.
         user.role = "driver"
 
     existing = await get_driver_by_user(db, user.id)

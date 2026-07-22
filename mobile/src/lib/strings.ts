@@ -172,6 +172,14 @@ export const t = {
 
   // ── Driver app ──────────────────────────────────────────────────────
   driver: {
+    // An admin account can never hold a driver profile (registering would
+    // revoke its panel access), so the driver app stops here instead of
+    // failing with a 403 deeper in.
+    adminBlocked: {
+      title: "Admin hisobi",
+      body: "Admin hisobi haydovchi bo'la olmaydi. Haydovchi rejimidan foydalanish uchun boshqa hisobga kiring.",
+      back: "Yo'lovchi rejimiga qaytish",
+    },
     register: {
       title: "Haydovchi bo'lish",
       subtitle: "Avtomobilingiz ma'lumotlarini kiriting",

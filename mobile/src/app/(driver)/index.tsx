@@ -1,6 +1,8 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "@/store/auth";
 import { driverApi } from "@/lib/api/driver";
 import { apiError, isNotFound } from "@/lib/api/client";
 import { Button } from "@/components/ui/Button";
@@ -17,7 +19,14 @@ import { colors, spacing } from "@/theme/colors";
  *   status = approved   → main home (Stage 2)
  */
 export default function DriverGate() {
+  const role = useAuth((s) => s.user?.role);
+  const setMode = useAuth((s) => s.setMode);
+  // Admins are barred from driver registration server-side, so short-circuit
+  // before querying — otherwise they'd sit on an unrecoverable error screen.
+  const isAdmin = role === "admin";
+
   const me = useQuery({
+    enabled: !isAdmin,
     queryKey: ["driver-me"],
     queryFn: () => driverApi.me(),
     retry: (count, err) => !isNotFound(err) && count < 2,
@@ -25,6 +34,20 @@ export default function DriverGate() {
     refetchInterval: (q) =>
       q.state.data && q.state.data.status !== "approved" ? 5000 : false,
   });
+
+  if (isAdmin) {
+    return (
+      <SafeAreaView style={styles.center}>
+        <Ionicons name="shield-outline" size={40} color={colors.muted} />
+        <Text style={styles.noticeTitle}>{t.driver.adminBlocked.title}</Text>
+        <Text style={styles.notice}>{t.driver.adminBlocked.body}</Text>
+        <Button
+          title={t.driver.adminBlocked.back}
+          onPress={() => void setMode("passenger")}
+        />
+      </SafeAreaView>
+    );
+  }
 
   if (me.isLoading) {
     return (
@@ -63,4 +86,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   err: { color: colors.danger, fontSize: 14, textAlign: "center", paddingHorizontal: spacing(6) },
+  noticeTitle: { fontSize: 17, fontWeight: "600", color: colors.text },
+  notice: {
+    fontSize: 14,
+    color: colors.muted,
+    textAlign: "center",
+    lineHeight: 20,
+    paddingHorizontal: spacing(8),
+  },
 });
