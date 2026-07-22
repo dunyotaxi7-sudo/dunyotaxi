@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
@@ -32,7 +33,12 @@ export default function DriverSummaryScreen() {
     <SafeAreaView style={styles.safe}>
       <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
       <View style={styles.container}>
-        <Text style={styles.emoji}>✅</Text>
+        <Ionicons
+          name="checkmark-circle-outline"
+          size={56}
+          color={colors.success}
+          style={{ alignSelf: "center" }}
+        />
         <Text style={styles.title}>{t.driver.summary.title}</Text>
 
         <View style={styles.card}>
@@ -103,7 +109,6 @@ function Row({
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   container: { flex: 1, padding: spacing(6) },
-  emoji: { fontSize: 40, textAlign: "center" },
   title: { fontSize: 22, fontWeight: "700", color: colors.text, textAlign: "center", marginTop: spacing(2), marginBottom: spacing(5) },
   card: {
     borderWidth: 1,

@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
@@ -19,7 +20,7 @@ export default function DriverHistoryScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Text style={styles.back}>←</Text>
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
         </Pressable>
         <Text style={styles.title}>{t.driver.history.title}</Text>
       </View>
@@ -82,7 +83,6 @@ function Row({ ride, onPress }: { ride: DriverRideHistory; onPress: () => void }
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   header: { flexDirection: "row", alignItems: "center", gap: spacing(4), padding: spacing(5) },
-  back: { fontSize: 24, color: colors.text },
   title: { fontSize: 22, fontWeight: "700", color: colors.text },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing(3) },
   err: { color: colors.danger, fontSize: 14 },

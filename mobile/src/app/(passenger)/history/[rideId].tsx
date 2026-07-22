@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -29,7 +30,7 @@ export default function HistoryDetailScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Text style={styles.back}>←</Text>
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
         </Pressable>
         <Text style={styles.title}>{t.history.detailTitle}</Text>
       </View>
@@ -80,7 +81,6 @@ function Row({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   header: { flexDirection: "row", alignItems: "center", gap: spacing(4), padding: spacing(5) },
-  back: { fontSize: 24, color: colors.text },
   title: { fontSize: 20, fontWeight: "700", color: colors.text },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   muted: { color: colors.muted, fontSize: 15 },

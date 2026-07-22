@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef } from "react";
@@ -87,11 +88,21 @@ export default function PassengerHome() {
 
       {/* Top-left: profile + history */}
       <View style={[styles.topLeft, { top: insets.top + spacing(3) }]}>
-        <Pressable style={styles.iconBtn} onPress={() => router.push("/profile")}>
-          <Text style={styles.iconTxt}>👤</Text>
+        <Pressable
+          style={styles.iconBtn}
+          onPress={() => router.push("/profile")}
+          accessibilityRole="button"
+          accessibilityLabel={t.profile.title}
+        >
+          <Ionicons name="person-outline" size={20} color={colors.text} />
         </Pressable>
-        <Pressable style={styles.iconBtn} onPress={() => router.push("/history")}>
-          <Text style={styles.iconTxt}>🕘</Text>
+        <Pressable
+          style={styles.iconBtn}
+          onPress={() => router.push("/history")}
+          accessibilityRole="button"
+          accessibilityLabel={t.history.title}
+        >
+          <Ionicons name="time-outline" size={20} color={colors.text} />
         </Pressable>
       </View>
 
@@ -102,7 +113,7 @@ export default function PassengerHome() {
         }
         style={[styles.locateBtn, { top: insets.top + spacing(3) }]}
       >
-        <Text style={styles.locateIcon}>◎</Text>
+        <Ionicons name="locate" size={20} color={colors.primary} />
       </Pressable>
 
       {location.status === "denied" && (
@@ -137,7 +148,10 @@ export default function PassengerHome() {
         />
 
         {fromOutside || toOutside ? (
-          <Text style={styles.outside}>⚠ {t.home.outsideArea}</Text>
+          <View style={styles.outsideRow}>
+            <Ionicons name="warning-outline" size={15} color={colors.danger} />
+            <Text style={styles.outside}>{t.home.outsideArea}</Text>
+          </View>
         ) : null}
 
         <Button
@@ -199,7 +213,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
-  locateIcon: { fontSize: 22, color: colors.primary },
   topLeft: { position: "absolute", left: spacing(4), flexDirection: "row", gap: spacing(2) },
   iconBtn: {
     width: 44,
@@ -214,7 +227,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
-  iconTxt: { fontSize: 18 },
   permBanner: {
     position: "absolute",
     left: spacing(4),
@@ -262,7 +274,8 @@ const styles = StyleSheet.create({
   placeLabel: { fontSize: 12, color: colors.muted },
   placeValue: { fontSize: 15, color: colors.text, marginTop: 2 },
   placeholder: { color: colors.muted },
-  outside: { color: colors.danger, fontSize: 13, marginTop: spacing(3), textAlign: "center" },
+  outsideRow: { flexDirection: "row", alignItems: "center", gap: spacing(1), marginTop: spacing(2) },
+  outside: { color: colors.danger, fontSize: 13, flex: 1 },
   divider: {
     height: 1,
     backgroundColor: colors.border,

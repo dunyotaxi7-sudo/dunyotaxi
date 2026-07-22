@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -160,7 +161,7 @@ export default function PickLocationScreen() {
       {/* Search bar */}
       <View style={[styles.searchWrap, { top: insets.top + spacing(3) }]}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backIcon}>←</Text>
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
         </Pressable>
         <TextInput
           style={styles.search}
@@ -280,7 +281,6 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   backBtn: { padding: spacing(2) },
-  backIcon: { fontSize: 20, color: colors.text },
   search: { flex: 1, height: 46, fontSize: 15, color: colors.text },
   panel: {
     position: "absolute",

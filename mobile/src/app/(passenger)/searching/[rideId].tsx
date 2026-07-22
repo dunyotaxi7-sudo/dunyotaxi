@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
@@ -125,7 +126,7 @@ function NoDriver({
 }) {
   return (
     <View style={styles.noDriver}>
-      <Text style={styles.emoji}>😕</Text>
+      <Ionicons name="car-outline" size={44} color={colors.muted} />
       <Text style={styles.title}>{t.searching.noDriverTitle}</Text>
       <Text style={styles.sub}>{t.searching.noDriverSub}</Text>
       {error ? <Text style={styles.err}>{error}</Text> : null}
@@ -194,7 +195,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: "700", color: colors.text, marginTop: spacing(8), textAlign: "center" },
   sub: { fontSize: 15, color: colors.muted, marginTop: spacing(2), textAlign: "center" },
   noDriver: { flex: 1, alignItems: "center", justifyContent: "center", alignSelf: "stretch" },
-  emoji: { fontSize: 48 },
   err: { color: colors.danger, fontSize: 13, marginTop: spacing(3), textAlign: "center" },
   fullBtn: { alignSelf: "stretch", marginTop: spacing(2) },
 });

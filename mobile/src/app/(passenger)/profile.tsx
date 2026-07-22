@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useMutation } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
@@ -6,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { authApi } from "@/lib/api/auth";
 import { apiError } from "@/lib/api/client";
 import { Button } from "@/components/ui/Button";
+import { confirmLogout } from "@/lib/confirmLogout";
 import { formatPhone } from "@/lib/format";
 import { t } from "@/lib/strings";
 import { useAuth } from "@/store/auth";
@@ -31,7 +33,7 @@ export default function ProfileScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} hitSlop={8}>
-            <Text style={styles.back}>←</Text>
+            <Ionicons name="chevron-back" size={24} color={colors.text} />
           </Pressable>
           <Text style={styles.title}>{t.profile.title}</Text>
         </View>
@@ -90,12 +92,12 @@ export default function ProfileScreen() {
         <Button
           title={t.profile.logout}
           variant="ghost"
-          onPress={async () => {
-            await signOut();
-            // Land on the role picker, not straight on login: signing back in
-            // should let them pick passenger or driver again.
-            router.replace("/");
-          }}
+          onPress={() =>
+            confirmLogout(async () => {
+              await signOut();
+              router.replace("/");
+            })
+          }
         />
       </View>
     </SafeAreaView>
@@ -106,7 +108,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   container: { flex: 1, padding: spacing(6) },
   header: { flexDirection: "row", alignItems: "center", gap: spacing(4), marginBottom: spacing(6) },
-  back: { fontSize: 24, color: colors.text },
   title: { fontSize: 22, fontWeight: "700", color: colors.text },
   avatar: {
     alignSelf: "center",

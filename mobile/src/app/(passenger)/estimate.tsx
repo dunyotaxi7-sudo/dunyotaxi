@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -106,7 +107,7 @@ export default function EstimateScreen() {
           onPress={() => router.back()}
           style={[styles.backBtn, { top: insets.top + spacing(3) }]}
         >
-          <Text style={styles.backIcon}>←</Text>
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
         </Pressable>
       </View>
 
@@ -231,7 +232,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
-  backIcon: { fontSize: 20, color: colors.text },
   sheet: {
     flex: 1,
     backgroundColor: colors.bg,

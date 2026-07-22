@@ -133,6 +133,9 @@ export const t = {
     phone: "Telefon",
     edit: "O'zgartirish",
     logout: "Chiqish",
+    logoutConfirmTitle: "Hisobdan chiqasizmi?",
+    logoutConfirmBody:
+      "Qayta kirish uchun telefon raqamingizni tasdiqlashingiz kerak bo'ladi.",
   },
 
   history: {

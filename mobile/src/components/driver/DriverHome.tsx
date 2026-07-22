@@ -246,7 +246,7 @@ export function DriverHome({ driver }: { driver: DriverProfile }) {
         onPress={() => location.coords && mapRef.current?.animateTo(location.coords, 15)}
         style={[styles.locateBtn, { bottom: insets.bottom + spacing(24) }]}
       >
-        <Text style={styles.locateIcon}>◎</Text>
+        <Ionicons name="locate" size={20} color={colors.primary} />
       </Pressable>
 
       {/* Online/offline toggle */}
@@ -355,7 +355,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
-  locateIcon: { fontSize: 22, color: colors.primary },
   bottom: {
     position: "absolute",
     left: 0,

@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
@@ -7,6 +8,7 @@ import { authApi } from "@/lib/api/auth";
 import { apiError } from "@/lib/api/client";
 import { driverApi } from "@/lib/api/driver";
 import { Button } from "@/components/ui/Button";
+import { confirmLogout } from "@/lib/confirmLogout";
 import { formatPhone } from "@/lib/format";
 import { t } from "@/lib/strings";
 import { useAuth } from "@/store/auth";
@@ -41,7 +43,7 @@ export default function DriverProfileScreen() {
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} hitSlop={8}>
-            <Text style={styles.back}>←</Text>
+            <Ionicons name="chevron-back" size={24} color={colors.text} />
           </Pressable>
           <Text style={styles.title}>{t.driver.profile.title}</Text>
         </View>
@@ -117,10 +119,12 @@ export default function DriverProfileScreen() {
         <Button
           title={t.profile.logout}
           variant="ghost"
-          onPress={async () => {
-            await signOut();
-            router.replace("/");
-          }}
+          onPress={() =>
+            confirmLogout(async () => {
+              await signOut();
+              router.replace("/");
+            })
+          }
           style={{ marginTop: spacing(8) }}
         />
       </ScrollView>
@@ -148,7 +152,6 @@ const styles = StyleSheet.create({
     gap: spacing(4),
     marginBottom: spacing(6),
   },
-  back: { fontSize: 24, color: colors.text },
   title: { fontSize: 22, fontWeight: "700", color: colors.text },
   avatar: {
     alignSelf: "center",
