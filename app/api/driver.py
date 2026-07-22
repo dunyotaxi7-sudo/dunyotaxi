@@ -63,7 +63,21 @@ async def register(
 
 
 @router.get("/me", response_model=DriverPublic)
-async def my_profile(driver: Driver = Depends(get_current_driver)):
+async def my_profile(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """The caller's own driver profile, or 404 if they don't have one yet.
+
+    Deliberately guarded by ``get_current_user`` rather than
+    ``get_current_driver``: a passenger only becomes ``role="driver"`` by
+    registering, so a role check here would 403 before the 404 and the app
+    could never show the registration form — nobody could ever sign up.
+    Returns only the caller's own profile, so there's nothing to leak.
+    """
+    driver = await driver_service.get_driver_by_user(db, user.id)
+    if driver is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "driver profile not found")
     return DriverPublic.model_validate(driver)
 
 
