@@ -92,7 +92,9 @@ export default function ProfileScreen() {
           variant="ghost"
           onPress={async () => {
             await signOut();
-            router.replace("/login");
+            // Land on the role picker, not straight on login: signing back in
+            // should let them pick passenger or driver again.
+            router.replace("/");
           }}
         />
       </View>
