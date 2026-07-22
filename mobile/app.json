@@ -84,6 +84,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e77b056d-e67d-4825-9f0a-c564bde663bd"
+      }
+    },
+    "owner": "dunyotaxi"
   }
 }

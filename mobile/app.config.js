@@ -4,12 +4,21 @@
 // so one env var configures both the native SDK and the app behavior.
 //
 // Everything else still lives in app.json; this file only layers the key on top.
+const { existsSync } = require("fs");
+
 const KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+const GOOGLE_SERVICES = "./google-services.json";
 
 export default ({ config }) => ({
   ...config,
   android: {
     ...config.android,
+    // FCM credentials — required for push to reach a backgrounded driver.
+    // Untracked (it carries the Firebase API key and the repo is public), so
+    // builds without it still work; they just can't deliver push.
+    ...(existsSync(GOOGLE_SERVICES)
+      ? { googleServicesFile: GOOGLE_SERVICES }
+      : {}),
     config: {
       ...(config.android?.config ?? {}),
       // Android needs the key in the manifest; omit entirely when unset.

@@ -7,6 +7,10 @@
 !.env*.example
 *.pem
 *.key
+# Firebase/FCM config — carries the Firebase API key, and this repo is public.
+# Needed locally and by EAS builds; keep a copy outside git.
+google-services.json
+GoogleService-Info.plist
 
 # ── Driver documents (uploaded passports / car photos) ─
 uploads/
@@ -51,3 +55,4 @@ yarn-error.log*
 .DS_Store
 .idea/
 .vscode/
+.vercel
