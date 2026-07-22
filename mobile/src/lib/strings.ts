@@ -319,6 +319,17 @@ export const t = {
       earnings: "Daromad",
       wallet: "Hamyon",
       history: "Tarix",
+      profile: "Profil",
+    },
+    profile: {
+      title: "Profil",
+      car: "Avtomobil",
+      carNumber: "Davlat raqami",
+      carColor: "Rangi",
+      carYear: "Yili",
+      rating: "Reyting",
+      totalRides: "Jami sayohatlar",
+      status: "Holat",
     },
     bonus: {
       title: "Bonuslar",

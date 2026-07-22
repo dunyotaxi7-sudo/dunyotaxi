@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { usePathname, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -26,7 +27,6 @@ import {
 } from "@/lib/backgroundLocation";
 import { registerForPush } from "@/lib/push";
 import { RideOfferModal } from "@/components/driver/RideOfferModal";
-import { useAuth } from "@/store/auth";
 import { formatSom } from "@/lib/format";
 import { t } from "@/lib/strings";
 import type { DriverProfile } from "@/lib/types";
@@ -66,7 +66,6 @@ export function DriverHome({ driver }: { driver: DriverProfile }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
-  const { signOut } = useAuth();
   const mapRef = useRef<MapHandle>(null);
   const location = useCurrentLocation();
   const [online, setOnline] = useState(driver.is_online);
@@ -202,8 +201,15 @@ export function DriverHome({ driver }: { driver: DriverProfile }) {
               <Text style={styles.gps}>· {t.driver.home.gpsStreaming}</Text>
             ) : null}
           </View>
-          <Pressable onPress={() => void signOut()} hitSlop={8}>
-            <Text style={styles.logout}>⎋</Text>
+          {/* Opens the profile (account, car, rating) — which is also where
+              sign-out now lives, so a stray tap can't end the shift. */}
+          <Pressable
+            onPress={() => router.push("/profile")}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t.driver.profile.title}
+          >
+            <Ionicons name="person-circle-outline" size={26} color={colors.muted} />
           </Pressable>
         </View>
 
@@ -303,7 +309,6 @@ const styles = StyleSheet.create({
   dot: { width: 10, height: 10, borderRadius: 5 },
   statusText: { fontSize: 15, fontWeight: "700", color: colors.text },
   gps: { fontSize: 12, color: colors.success },
-  logout: { fontSize: 20, color: colors.muted },
   statsRow: {
     flexDirection: "row",
     alignItems: "center",
