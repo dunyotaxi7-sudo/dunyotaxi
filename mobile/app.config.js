@@ -17,6 +17,8 @@ export default ({ config }) => ({
   plugins: [
     ...(config.plugins ?? []),
     ["react-native-yamap-plus", { android_useYandexMapKitLite: true }],
+    // Yandex MapKit requires Android 8.0 (API 26); the Expo default is 24.
+    ["expo-build-properties", { android: { minSdkVersion: 26 } }],
   ],
   android: {
     ...config.android,
