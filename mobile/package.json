@@ -38,6 +38,7 @@
     "react-native-screens": "4.25.2",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.10.0",
+    "react-native-yamap-plus": "^6.9.1",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
