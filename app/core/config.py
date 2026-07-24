@@ -56,6 +56,14 @@ class Settings(BaseSettings):
     )
     driver_accept_timeout_seconds: int = 15
 
+    # We price on straight-line (haversine) distance between pickup and dropoff,
+    # but drivers travel the road network, which is always longer. Multiply the
+    # straight-line distance by this factor to approximate real road distance so
+    # fares and ETAs aren't understated. ~1.4 is typical for a dense city; tune
+    # against a few known Bukhara routes. Only applied when the client doesn't
+    # supply a real routed distance.
+    road_distance_factor: float = 1.4
+
     # Driver wallet: the lowest balance (debt limit) a driver may reach and still
     # receive orders. At or below this, dispatch skips them until they top up.
     min_driver_balance: int = -15000

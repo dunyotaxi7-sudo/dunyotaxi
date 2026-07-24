@@ -118,9 +118,16 @@ async def estimate(db: AsyncSession, *, from_lat, from_lng, to_lat, to_lng,
     if cfg is None:
         raise RideError("no active pricing config")
 
-    dist = distance_km if distance_km is not None else haversine_km(
-        from_lat, from_lng, to_lat, to_lng
-    )
+    # A client-supplied distance is already a real routed distance; trust it.
+    # Otherwise approximate road distance from the straight line (which is always
+    # shorter than the actual drive) via the road-distance factor.
+    if distance_km is not None:
+        dist = distance_km
+    else:
+        dist = (
+            haversine_km(from_lat, from_lng, to_lat, to_lng)
+            * settings.road_distance_factor
+        )
     price_sum, night, duration = pricing.compute_fare(cfg, dist, at)
 
     promo = await pricing.get_promo_by_code(db, promo_code)
