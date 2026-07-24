@@ -11,6 +11,13 @@ const GOOGLE_SERVICES = "./google-services.json";
 
 export default ({ config }) => ({
   ...config,
+  // Yandex MapKit (Lite/free tier) for the map canvas itself. Spike on the
+  // yandex-mapkit branch — verifying it builds on RN 0.86 / New Arch before
+  // rewriting the <Map> component.
+  plugins: [
+    ...(config.plugins ?? []),
+    ["react-native-yamap-plus", { android_useYandexMapKitLite: true }],
+  ],
   android: {
     ...config.android,
     // FCM credentials — required for push to reach a backgrounded driver.
