@@ -541,6 +541,7 @@ async def list_drivers_with_balance(
             "car_model": d.car_model,
             "car_number": d.car_number,
             "car_color": d.car_color,
+            "car_class": d.car_class,
             "rating": d.rating,
             "total_rides": d.total_rides,
             "status": d.status,

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { driversApi } from "@/lib/api";
 import { apiError } from "@/lib/axios";
-import { formatNumber, formatSom } from "@/lib/format";
+import { formatNumber, formatPhone, formatSom } from "@/lib/format";
 import type { DriverStatus } from "@/lib/types";
 import { Badge, EmptyState, ErrorBlock, LoadingBlock } from "@/components/ui";
 import { driverStatusLabel } from "@/lib/strings";
@@ -65,8 +65,10 @@ export default function DriversPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-muted border-b bg-gray-50/60">
+                  <th className="px-4 py-3 font-medium">Haydovchi</th>
                   <th className="px-4 py-3 font-medium">Avtomobil</th>
                   <th className="px-4 py-3 font-medium">Raqam</th>
+                  <th className="px-4 py-3 font-medium">Tarif</th>
                   <th className="px-4 py-3 font-medium">Reyting</th>
                   <th className="px-4 py-3 font-medium">Sayohatlar</th>
                   <th className="px-4 py-3 font-medium">Balans</th>
@@ -79,6 +81,12 @@ export default function DriversPage() {
                 {data.map((d) => (
                   <tr key={d.id} className="border-b last:border-0 hover:bg-gray-50/60">
                     <td className="px-4 py-3">
+                      <div className="font-medium">{d.full_name ?? "—"}</div>
+                      <div className="text-muted text-xs font-mono">
+                        {formatPhone(d.phone)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
                       {d.car_model}
                       {d.car_color ? (
                         <span className="text-muted"> · {d.car_color}</span>
@@ -87,6 +95,7 @@ export default function DriversPage() {
                     <td className="px-4 py-3 font-mono text-xs">
                       {d.car_number}
                     </td>
+                    <td className="px-4 py-3 capitalize">{d.car_class}</td>
                     <td className="px-4 py-3">★ {Number(d.rating).toFixed(2)}</td>
                     <td className="px-4 py-3">{formatNumber(d.total_rides)}</td>
                     <td className="px-4 py-3">
