@@ -211,7 +211,9 @@ export const commissionApi = {
     api.get<CommissionConfig[]>("/admin/commission").then((r) => r.data),
   create: (body: {
     driver_id?: string | null;
-    commission_pct: number;
+    commission_type?: "percent" | "fixed";
+    commission_pct?: number;
+    commission_fixed?: number;
     valid_from?: string;
     valid_until?: string;
   }) =>

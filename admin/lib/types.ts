@@ -163,10 +163,14 @@ export interface PricingConfigUpdate {
   is_active?: boolean;
 }
 
+export type CommissionType = "percent" | "fixed";
+
 export interface CommissionConfig {
   id: number;
   driver_id: string | null;
+  commission_type: CommissionType;
   commission_pct: string;
+  commission_fixed: number;
   valid_from: string;
   valid_until: string | null;
   created_at: string | null;

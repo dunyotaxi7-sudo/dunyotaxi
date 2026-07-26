@@ -5,7 +5,9 @@ import uuid
 from datetime import date, datetime, time
 from decimal import Decimal
 
-from pydantic import BaseModel, Field, field_validator
+from typing import Literal
+
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.schemas.common import PHONE_RE, ORMModel, PhoneMixin
 
@@ -56,15 +58,28 @@ class PricingConfigPublic(ORMModel):
 
 class CommissionConfigCreate(BaseModel):
     driver_id: uuid.UUID | None = None  # None = global
-    commission_pct: float = Field(..., ge=0, le=100)
+    # "percent": commission_pct of the fare. "fixed": commission_fixed so'm/trip.
+    commission_type: Literal["percent", "fixed"] = "percent"
+    commission_pct: float = Field(0, ge=0, le=100)
+    commission_fixed: int = Field(0, ge=0)
     valid_from: date | None = None
     valid_until: date | None = None
+
+    @model_validator(mode="after")
+    def _require_matching_value(self) -> "CommissionConfigCreate":
+        if self.commission_type == "fixed" and self.commission_fixed <= 0:
+            raise ValueError("commission_fixed must be > 0 for a fixed commission")
+        if self.commission_type == "percent" and not (0 < self.commission_pct <= 100):
+            raise ValueError("commission_pct must be between 0 and 100 for a percent commission")
+        return self
 
 
 class CommissionConfigPublic(ORMModel):
     id: int
     driver_id: uuid.UUID | None = None
+    commission_type: str
     commission_pct: Decimal
+    commission_fixed: int
     valid_from: date
     valid_until: date | None = None
     created_at: datetime | None = None

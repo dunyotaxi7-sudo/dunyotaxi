@@ -19,12 +19,23 @@ export default function CommissionPage() {
     return m;
   }, [drivers.data]);
 
+  const [globalType, setGlobalType] = useState<"percent" | "fixed">("percent");
   const [globalPct, setGlobalPct] = useState("15");
+  const [globalFixed, setGlobalFixed] = useState("1250");
   const [ovrDriver, setOvrDriver] = useState("");
+  const [ovrType, setOvrType] = useState<"percent" | "fixed">("percent");
   const [ovrPct, setOvrPct] = useState("10");
+  const [ovrFixed, setOvrFixed] = useState("1250");
   const [ovrFrom, setOvrFrom] = useState("");
   const [ovrUntil, setOvrUntil] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
+
+  // Build the create payload for the chosen commission type.
+  function commissionBody(type: "percent" | "fixed", pct: string, fixed: string) {
+    return type === "fixed"
+      ? { commission_type: "fixed" as const, commission_fixed: Number(fixed) }
+      : { commission_type: "percent" as const, commission_pct: Number(pct) };
+  }
 
   const create = useMutation({
     mutationFn: commissionApi.create,
@@ -44,19 +55,45 @@ export default function CommissionPage() {
           <p className="text-sm text-muted">Alohida belgilanmagan barcha haydovchilarga tegishli.</p>
           <div className="flex items-end gap-3">
             <div>
-              <label className="label">Foiz</label>
-              <input
-                className="input w-32"
-                type="number"
-                step="0.5"
-                value={globalPct}
-                onChange={(e) => setGlobalPct(e.target.value)}
-              />
+              <label className="label">Komissiya turi</label>
+              <select
+                className="input w-40"
+                value={globalType}
+                onChange={(e) => setGlobalType(e.target.value as "percent" | "fixed")}
+              >
+                <option value="percent">Foiz (%)</option>
+                <option value="fixed">Belgilangan (so'm)</option>
+              </select>
             </div>
+            {globalType === "percent" ? (
+              <div>
+                <label className="label">Foiz</label>
+                <input
+                  className="input w-32"
+                  type="number"
+                  step="0.5"
+                  value={globalPct}
+                  onChange={(e) => setGlobalPct(e.target.value)}
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="label">Har sayohat uchun (so'm)</label>
+                <input
+                  className="input w-40"
+                  type="number"
+                  step="50"
+                  value={globalFixed}
+                  onChange={(e) => setGlobalFixed(e.target.value)}
+                />
+              </div>
+            )}
             <button
               className="btn btn-primary"
               disabled={create.isPending}
-              onClick={() => create.mutate({ commission_pct: Number(globalPct) })}
+              onClick={() =>
+                create.mutate(commissionBody(globalType, globalPct, globalFixed))
+              }
             >
               Umumiyni saqlash
             </button>
@@ -77,10 +114,27 @@ export default function CommissionPage() {
               </select>
             </div>
             <div>
-              <label className="label">Foiz</label>
-              <input className="input" type="number" step="0.5" value={ovrPct} onChange={(e) => setOvrPct(e.target.value)} />
+              <label className="label">Komissiya turi</label>
+              <select
+                className="input"
+                value={ovrType}
+                onChange={(e) => setOvrType(e.target.value as "percent" | "fixed")}
+              >
+                <option value="percent">Foiz (%)</option>
+                <option value="fixed">Belgilangan (so'm)</option>
+              </select>
             </div>
-            <div />
+            {ovrType === "percent" ? (
+              <div>
+                <label className="label">Foiz</label>
+                <input className="input" type="number" step="0.5" value={ovrPct} onChange={(e) => setOvrPct(e.target.value)} />
+              </div>
+            ) : (
+              <div>
+                <label className="label">Har sayohat uchun (so'm)</label>
+                <input className="input" type="number" step="50" value={ovrFixed} onChange={(e) => setOvrFixed(e.target.value)} />
+              </div>
+            )}
             <div>
               <label className="label">Amal qilish boshlanishi</label>
               <input className="input" type="date" value={ovrFrom} onChange={(e) => setOvrFrom(e.target.value)} />
@@ -96,7 +150,7 @@ export default function CommissionPage() {
             onClick={() =>
               create.mutate({
                 driver_id: ovrDriver,
-                commission_pct: Number(ovrPct),
+                ...commissionBody(ovrType, ovrPct, ovrFixed),
                 valid_from: ovrFrom || undefined,
                 valid_until: ovrUntil || undefined,
               })
@@ -139,7 +193,11 @@ export default function CommissionPage() {
                           <Badge tone="blue">Umumiy</Badge>
                         )}
                       </td>
-                      <td className="px-4 py-3 font-medium">{Number(c.commission_pct).toFixed(2)}%</td>
+                      <td className="px-4 py-3 font-medium">
+                        {c.commission_type === "fixed"
+                          ? `${c.commission_fixed.toLocaleString("ru-RU")} so'm / sayohat`
+                          : `${Number(c.commission_pct).toFixed(2)}%`}
+                      </td>
                       <td className="px-4 py-3 text-muted">{formatDate(c.valid_from)}</td>
                       <td className="px-4 py-3 text-muted">{c.valid_until ? formatDate(c.valid_until) : "—"}</td>
                     </tr>
