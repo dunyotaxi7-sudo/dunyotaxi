@@ -23,6 +23,7 @@ import type {
   PassengerDetail,
   PassengerRow,
   UpdatePassengerInput,
+  CarTypeAdmin,
   PricingConfig,
   PricingConfigUpdate,
   PromoCode,
@@ -194,6 +195,16 @@ export const mapApi = {
 };
 
 // ── Pricing ───────────────────────────────────────────────────────────
+export const carTypesApi = {
+  list: () =>
+    api.get<CarTypeAdmin[]>("/admin/car-types").then((r) => r.data),
+  update: (
+    code: string,
+    body: { name_uz?: string; multiplier?: number; sort_order?: number; is_active?: boolean },
+  ) =>
+    api.patch<CarTypeAdmin>(`/admin/car-types/${code}`, body).then((r) => r.data),
+};
+
 export const pricingApi = {
   list: () =>
     api.get<PricingConfig[]>("/admin/pricing").then((r) => r.data),

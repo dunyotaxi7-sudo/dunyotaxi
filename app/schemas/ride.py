@@ -18,6 +18,21 @@ class EstimateRequest(BaseModel):
     # Optional client-measured distance; otherwise computed great-circle.
     distance_km: float | None = Field(default=None, ge=0)
     promo_code: str | None = None
+    car_type: str = "econom"
+
+
+class CarTypePublic(BaseModel):
+    code: str
+    name_uz: str
+    multiplier: float
+
+
+class TierQuote(BaseModel):
+    car_type: str
+    name: str
+    multiplier: float
+    price_sum: int
+    final_price: int
 
 
 class EstimateResponse(BaseModel):
@@ -27,6 +42,8 @@ class EstimateResponse(BaseModel):
     price_per_km: int
     night: bool
     night_multiplier: float
+    car_type: str = "econom"
+    tiers: list[TierQuote] = []
     price_sum: int
     discount: int = 0
     final_price: int
@@ -41,6 +58,7 @@ class RideRequest(BaseModel):
     distance_km: float | None = Field(default=None, ge=0)
     payment_method: str = Field(default="cash")
     promo_code: str | None = None
+    car_type: str = "econom"
 
 
 class RidePublic(ORMModel):

@@ -24,6 +24,21 @@ from app.core.database import Base
 from app.models.common import created_at_col, updated_at_col, uuid_pk
 
 
+class CarType(Base):
+    """A service tier (Econom/Komfort/Biznes). The fare is the base fare scaled
+    by ``multiplier``; drivers and rides reference a tier by ``code``."""
+
+    __tablename__ = "car_types"
+
+    code: Mapped[str] = mapped_column(String(20), primary_key=True)
+    name_uz: Mapped[str] = mapped_column(String(50), nullable=False)
+    multiplier: Mapped[Decimal] = mapped_column(
+        Numeric(4, 2), nullable=False, default=Decimal("1.00")
+    )
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
 class PricingConfig(Base):
     __tablename__ = "pricing_config"
 

@@ -22,6 +22,7 @@ from app.api.deps import client_ip, get_redis_dep, require_role
 from app.core.database import get_db
 from app.models import (
     BonusCampaign,
+    CarType,
     CommissionConfig,
     Driver,
     DriverDocument,
@@ -44,6 +45,8 @@ from app.schemas.admin import (
     BonusCampaignCreate,
     BonusCampaignPublic,
     BonusCampaignUpdate,
+    CarTypeAdmin,
+    CarTypeUpdate,
     CommissionConfigCreate,
     CommissionConfigPublic,
     AdminRideDetail,
@@ -512,6 +515,37 @@ async def update_pricing(
 
 
 # ── Commission config ─────────────────────────────────────────────────
+
+
+@router.get("/car-types", response_model=list[CarTypeAdmin])
+async def list_car_types(db: AsyncSession = Depends(get_db)):
+    res = await db.execute(
+        select(CarType).order_by(CarType.sort_order, CarType.multiplier)
+    )
+    return [CarTypeAdmin.model_validate(c) for c in res.scalars()]
+
+
+@router.patch("/car-types/{code}", response_model=CarTypeAdmin)
+async def update_car_type(
+    code: str,
+    payload: CarTypeUpdate,
+    request: Request,
+    admin: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    car = await db.get(CarType, code)
+    if car is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "car type not found")
+    changes = payload.model_dump(exclude_none=True)
+    for field, val in changes.items():
+        setattr(car, field, val)
+    await admin_service.log_action(
+        db, admin.id, "car_type_update", entity_type="car_type",
+        entity_id=code, new_value=changes, ip_address=client_ip(request),
+    )
+    await db.commit()
+    await db.refresh(car)
+    return CarTypeAdmin.model_validate(car)
 
 
 @router.get("/commission", response_model=list[CommissionConfigPublic])

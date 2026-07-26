@@ -12,7 +12,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import PricingConfig, PromoCode
+from app.models import CarType, PricingConfig, PromoCode
 
 
 @dataclass(frozen=True)
@@ -51,17 +51,20 @@ def _round_som(value: Decimal) -> int:
 
 
 def compute_fare(
-    cfg: PricingConfig, distance_km: float, at: datetime
+    cfg: PricingConfig, distance_km: float, at: datetime,
+    tier_multiplier: Decimal | float = 1,
 ) -> tuple[int, bool, int]:
     """Core fare formula. Returns (price_sum, is_night, duration_min).
 
     base_fare covers the first ``base_km``; every additional km costs
-    ``price_per_km``. The night multiplier scales the whole fare. The result is
-    floored at ``min_price``.
+    ``price_per_km``. The night multiplier scales the whole fare, then the car
+    tier multiplier scales it again. The result is floored at ``min_price``
+    (itself scaled by the tier, so a higher tier has a higher minimum).
     """
     distance = Decimal(str(max(distance_km, 0)))
     base_km = Decimal(str(cfg.base_km))
     extra_km = max(distance - base_km, Decimal("0"))
+    tier = Decimal(str(tier_multiplier))
 
     fare = Decimal(cfg.base_fare) + extra_km * Decimal(cfg.price_per_km)
 
@@ -69,7 +72,8 @@ def compute_fare(
     if night:
         fare = fare * Decimal(str(cfg.night_multiplier))
 
-    price = max(_round_som(fare), int(cfg.min_price))
+    fare = fare * tier
+    price = max(_round_som(fare), _round_som(Decimal(cfg.min_price) * tier))
     duration_min = int(round(float(distance) / AVG_SPEED_KMH * 60)) or 1
     return price, night, duration_min
 
@@ -99,6 +103,16 @@ async def get_active_config(db: AsyncSession) -> PricingConfig | None:
         .limit(1)
     )
     return res.scalar_one_or_none()
+
+
+async def get_active_car_types(db: AsyncSession) -> list[CarType]:
+    """Active service tiers, cheapest first. Empty if none configured."""
+    res = await db.execute(
+        select(CarType)
+        .where(CarType.is_active.is_(True))
+        .order_by(CarType.sort_order, CarType.multiplier)
+    )
+    return list(res.scalars())
 
 
 async def get_promo_by_code(db: AsyncSession, code: str | None) -> PromoCode | None:

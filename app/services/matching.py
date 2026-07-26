@@ -56,11 +56,13 @@ async def find_nearest_drivers(
     exclude: set[str] | None = None,
     limit: int = 10,
     radii: list[int] | None = None,
+    car_type: str | None = None,
 ) -> list[Candidate]:
     """Return ranked, eligible candidate drivers near (lat, lng).
 
     ``exclude`` is a set of driver-id strings to skip (e.g. drivers that already
-    rejected this ride, or are busy).
+    rejected this ride, or are busy). ``car_type`` restricts to drivers whose
+    car_class serves that tier (None = any tier, for display/nearby queries).
     """
     radii = radii or settings.match_radii_meters
     exclude = exclude or set()
@@ -73,15 +75,18 @@ async def find_nearest_drivers(
     # Validate eligibility & pull ratings from the DB in one query. Drivers at or
     # below the balance floor are skipped — they must top up before taking orders.
     ids = [uuid.UUID(d) for d, _ in raw]
+    conditions = [
+        Driver.id.in_(ids),
+        Driver.status == "approved",
+        Driver.is_online.is_(True),
+        func.coalesce(Wallet.balance, 0) > settings.min_driver_balance,
+    ]
+    if car_type is not None:
+        conditions.append(Driver.car_class == car_type)
     res = await db.execute(
         select(Driver.id, Driver.rating)
         .outerjoin(Wallet, Wallet.user_id == Driver.user_id)
-        .where(
-            Driver.id.in_(ids),
-            Driver.status == "approved",
-            Driver.is_online.is_(True),
-            func.coalesce(Wallet.balance, 0) > settings.min_driver_balance,
-        )
+        .where(*conditions)
     )
     rating_by_id = {str(row.id): float(row.rating) for row in res}
 

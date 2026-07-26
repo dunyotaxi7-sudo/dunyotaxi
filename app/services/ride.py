@@ -14,6 +14,7 @@ import asyncio
 import logging
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
 import redis.asyncio as redis
 from geoalchemy2 import Geometry
@@ -110,7 +111,7 @@ def can_transition(current: str, target: str) -> bool:
 
 async def estimate(db: AsyncSession, *, from_lat, from_lng, to_lat, to_lng,
                    distance_km: float | None, promo_code: str | None,
-                   at: datetime) -> dict:
+                   at: datetime, car_type: str = "econom") -> dict:
     # Hard geographic gate: both points must be inside the service area.
     service_area.check_ride_area(from_lat, from_lng, to_lat, to_lng)
 
@@ -128,9 +129,35 @@ async def estimate(db: AsyncSession, *, from_lat, from_lng, to_lat, to_lng,
             haversine_km(from_lat, from_lng, to_lat, to_lng)
             * settings.road_distance_factor
         )
-    price_sum, night, duration = pricing.compute_fare(cfg, dist, at)
+
+    # Price every active tier so the app can show a selector; fall back to a
+    # single econom tier if none are configured yet.
+    tiers = await pricing.get_active_car_types(db)
+    if not tiers:
+        multipliers = {"econom": Decimal("1.0")}
+        tier_names = {"econom": "Econom"}
+    else:
+        multipliers = {t.code: t.multiplier for t in tiers}
+        tier_names = {t.code: t.name_uz for t in tiers}
+    if car_type not in multipliers:
+        car_type = next(iter(multipliers))  # cheapest active tier
 
     promo = await pricing.get_promo_by_code(db, promo_code)
+
+    tier_quotes = []
+    for code, mult in multipliers.items():
+        p, night, duration = pricing.compute_fare(cfg, dist, at, mult)
+        tier_quotes.append({
+            "car_type": code,
+            "name": tier_names[code],
+            "multiplier": float(mult),
+            "price_sum": p,
+            "final_price": p - pricing.apply_promo(p, promo),
+        })
+
+    selected = next(t for t in tier_quotes if t["car_type"] == car_type)
+    price_sum = selected["price_sum"]
+    _, night, duration = pricing.compute_fare(cfg, dist, at, multipliers[car_type])
     discount = pricing.apply_promo(price_sum, promo)
 
     return {
@@ -140,6 +167,8 @@ async def estimate(db: AsyncSession, *, from_lat, from_lng, to_lat, to_lng,
         "price_per_km": int(cfg.price_per_km),
         "night": night,
         "night_multiplier": float(cfg.night_multiplier),
+        "car_type": car_type,
+        "tiers": tier_quotes,
         "price_sum": price_sum,
         "discount": discount,
         "final_price": price_sum - discount,
@@ -150,12 +179,13 @@ async def estimate(db: AsyncSession, *, from_lat, from_lng, to_lat, to_lng,
 
 
 async def create_ride(db: AsyncSession, passenger_id: uuid.UUID, req) -> Ride:
+    car_type = getattr(req, "car_type", None) or "econom"
     q = await estimate(
         db,
         from_lat=req.from_location.lat, from_lng=req.from_location.lng,
         to_lat=req.to_location.lat, to_lng=req.to_location.lng,
         distance_km=req.distance_km, promo_code=req.promo_code,
-        at=datetime.now(),
+        at=datetime.now(), car_type=car_type,
     )
     if req.payment_method not in {"cash", "payme", "click", "uzum", "wallet"}:
         raise RideError("invalid payment method")
@@ -169,6 +199,7 @@ async def create_ride(db: AsyncSession, passenger_id: uuid.UUID, req) -> Ride:
         distance_km=q["distance_km"],
         duration_min=q["duration_min"],
         price_sum=q["final_price"],
+        car_type=q["car_type"],
         status="searching",
         payment_method=req.payment_method,
     )
@@ -274,7 +305,8 @@ async def _dispatch_loop(
                     first = None
                 else:
                     candidates = await matching.find_nearest_drivers(
-                        db, r, lat, lng, exclude=rejected, limit=1
+                        db, r, lat, lng, exclude=rejected, limit=1,
+                        car_type=ride.car_type,
                     )
                     if not candidates:
                         break

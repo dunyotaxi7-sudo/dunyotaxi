@@ -26,7 +26,7 @@ export default function EstimateScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapHandle>(null);
-  const { from, to } = useRideDraft();
+  const { from, to, carType, setCarType } = useRideDraft();
 
   // Payments are cash-only for now.
   const payment: PaymentMethod = "cash";
@@ -41,12 +41,13 @@ export default function EstimateScreen() {
   }, [from, to]);
 
   const estimate = useQuery({
-    queryKey: ["estimate", from?.coords, to?.coords, appliedPromo],
+    queryKey: ["estimate", from?.coords, to?.coords, appliedPromo, carType],
     queryFn: () =>
       ridesApi.estimate({
         from: from!.coords,
         to: to!.coords,
         promoCode: appliedPromo ?? undefined,
+        carType,
       }),
     enabled: Boolean(from && to),
   });
@@ -60,6 +61,7 @@ export default function EstimateScreen() {
         toAddress: to!.address,
         paymentMethod: payment,
         promoCode: appliedPromo ?? undefined,
+        carType,
       }),
     onSuccess: (ride) => {
       router.replace({
@@ -133,6 +135,32 @@ export default function EstimateScreen() {
               <Meta label={t.estimate.duration} value={t.estimate.minutes(data.duration_min)} />
               {data.night ? <NightBadge /> : null}
             </View>
+
+            {/* car type tiers */}
+            {data.tiers.length > 1 ? (
+              <>
+                <Text style={styles.sectionLabel}>{t.estimate.carType}</Text>
+                <View style={styles.tierRow}>
+                  {data.tiers.map((tier) => {
+                    const active = tier.car_type === carType;
+                    return (
+                      <Pressable
+                        key={tier.car_type}
+                        onPress={() => setCarType(tier.car_type)}
+                        style={[styles.tier, active && styles.tierActive]}
+                      >
+                        <Text style={[styles.tierName, active && styles.tierNameActive]}>
+                          {tier.name}
+                        </Text>
+                        <Text style={[styles.tierPrice, active && styles.tierNameActive]}>
+                          {formatSom(tier.final_price)}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </>
+            ) : null}
 
             {/* price */}
             <View style={styles.priceBlock}>
@@ -252,6 +280,22 @@ const styles = StyleSheet.create({
     paddingVertical: spacing(1),
   },
   nightText: { fontSize: 12, color: colors.primary, fontWeight: "500" },
+  tierRow: { flexDirection: "row", gap: spacing(2) },
+  tier: {
+    flex: 1,
+    paddingVertical: spacing(3),
+    paddingHorizontal: spacing(2),
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
+    alignItems: "center",
+    gap: 2,
+  },
+  tierActive: { borderColor: colors.primary, backgroundColor: "#eef2ff" },
+  tierName: { fontSize: 14, fontWeight: "600", color: colors.text },
+  tierNameActive: { color: colors.primary },
+  tierPrice: { fontSize: 13, color: colors.muted },
   priceBlock: { marginTop: spacing(5), marginBottom: spacing(2) },
   price: { fontSize: 34, fontWeight: "800", color: colors.text },
   priceStrike: {

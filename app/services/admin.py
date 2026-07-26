@@ -618,6 +618,7 @@ def _driver_row(driver, user, balance: int) -> dict:
         "car_model": driver.car_model,
         "car_number": driver.car_number,
         "car_color": driver.car_color,
+        "car_class": driver.car_class,
         "rating": driver.rating,
         "total_rides": driver.total_rides,
         "status": driver.status,
@@ -689,7 +690,7 @@ async def update_driver_profile(
     if payload.full_name is not None and user is not None:
         user.full_name = payload.full_name
         changes["full_name"] = payload.full_name
-    for field in ("car_model", "car_number", "car_color", "car_year"):
+    for field in ("car_model", "car_number", "car_color", "car_year", "car_class"):
         val = getattr(payload, field)
         if val is not None:
             setattr(driver, field, val)

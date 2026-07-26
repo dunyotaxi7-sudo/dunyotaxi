@@ -56,6 +56,10 @@ class Driver(Base):
     car_number: Mapped[str] = mapped_column(String(15), nullable=False)
     car_color: Mapped[str | None] = mapped_column(String(30))
     car_year: Mapped[int | None] = mapped_column(SmallInteger)
+    # Which service tier this driver serves (car_types.code). Set by an admin.
+    car_class: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default="econom", default="econom"
+    )
     rating: Mapped[Decimal] = mapped_column(Numeric(3, 2), default=Decimal("5.0"))
     total_rides: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(15), default="pending")

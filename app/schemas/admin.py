@@ -74,6 +74,21 @@ class CommissionConfigCreate(BaseModel):
         return self
 
 
+class CarTypeAdmin(ORMModel):
+    code: str
+    name_uz: str
+    multiplier: Decimal
+    sort_order: int
+    is_active: bool
+
+
+class CarTypeUpdate(BaseModel):
+    name_uz: str | None = Field(default=None, max_length=50)
+    multiplier: float | None = Field(default=None, gt=0, le=10)
+    sort_order: int | None = None
+    is_active: bool | None = None
+
+
 class CommissionConfigPublic(ORMModel):
     id: int
     driver_id: uuid.UUID | None = None
@@ -341,6 +356,7 @@ class AdminDriverRow(BaseModel):
     car_model: str
     car_number: str
     car_color: str | None = None
+    car_class: str = "econom"
     rating: Decimal
     total_rides: int
     status: str
@@ -365,6 +381,7 @@ class AdminDriverProfileUpdate(BaseModel):
     car_number: str | None = Field(default=None, max_length=15)
     car_color: str | None = Field(default=None, max_length=30)
     car_year: int | None = Field(default=None, ge=1950, le=2100)
+    car_class: str | None = Field(default=None, max_length=20)
 
 
 class DriverTxRow(BaseModel):

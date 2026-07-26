@@ -84,6 +84,7 @@ export const t = {
     calculating: "Narx hisoblanmoqda…",
     distance: "Masofa",
     duration: "Taxminiy vaqt",
+    carType: "Avtomobil turi",
     minutes: (m: number) => `${m} daqiqa`,
     night: "🌙 Kechki tarif",
     payment: "To'lov usuli",

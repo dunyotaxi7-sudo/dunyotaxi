@@ -18,6 +18,7 @@ export interface EstimateInput {
   from: Coords;
   to: Coords;
   promoCode?: string;
+  carType?: string;
 }
 
 export interface RequestRideInput {
@@ -27,6 +28,7 @@ export interface RequestRideInput {
   toAddress: string;
   paymentMethod: PaymentMethod;
   promoCode?: string;
+  carType?: string;
 }
 
 const geo = (c: Coords) => ({ lat: c.lat, lng: c.lng });
@@ -45,6 +47,7 @@ export const ridesApi = {
         from_location: geo(input.from),
         to_location: geo(input.to),
         promo_code: input.promoCode || null,
+        car_type: input.carType ?? "econom",
       })
       .then((r) => r.data),
 
@@ -57,6 +60,7 @@ export const ridesApi = {
         to_address: input.toAddress,
         payment_method: input.paymentMethod,
         promo_code: input.promoCode || null,
+        car_type: input.carType ?? "econom",
       })
       .then((r) => r.data),
 

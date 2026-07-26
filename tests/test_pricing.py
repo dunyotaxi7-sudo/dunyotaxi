@@ -117,3 +117,23 @@ def test_promo_never_exceeds_price():
 
 def test_no_promo_returns_zero():
     assert apply_promo(15000, None) == 0
+
+
+def test_tier_multiplier_scales_fare():
+    cfg = make_cfg()
+    at = datetime(2026, 6, 29, 12, 0)  # daytime
+    econom, _, _ = compute_fare(cfg, 5.0, at, 1.0)
+    komfort, _, _ = compute_fare(cfg, 5.0, at, Decimal("1.4"))
+    biznes, _, _ = compute_fare(cfg, 5.0, at, Decimal("1.8"))
+    assert komfort == round(econom * 1.4)
+    assert biznes == round(econom * 1.8)
+
+
+def test_tier_multiplier_scales_min_price_floor():
+    # Short trip hits the floor; the floor itself scales with the tier.
+    cfg = make_cfg(base_fare=3000, min_price=10000)
+    at = datetime(2026, 6, 29, 12, 0)
+    econom, _, _ = compute_fare(cfg, 1.0, at, 1.0)
+    komfort, _, _ = compute_fare(cfg, 1.0, at, Decimal("1.5"))
+    assert econom == 10000
+    assert komfort == 15000

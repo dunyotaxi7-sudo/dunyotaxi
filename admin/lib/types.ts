@@ -51,6 +51,7 @@ export interface DriverPublic {
   car_number: string;
   car_color: string | null;
   car_year?: number | null;
+  car_class: string;
   rating: string; // Decimal serialized as string
   total_rides: number;
   status: DriverStatus;
@@ -96,6 +97,15 @@ export interface UpdateDriverProfileInput {
   car_number?: string;
   car_color?: string;
   car_year?: number;
+  car_class?: string;
+}
+
+export interface CarTypeAdmin {
+  code: string;
+  name_uz: string;
+  multiplier: string;
+  sort_order: number;
+  is_active: boolean;
 }
 
 export interface DocumentPublic {

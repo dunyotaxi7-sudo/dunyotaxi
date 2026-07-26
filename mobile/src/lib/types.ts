@@ -166,6 +166,14 @@ export type RideStatus =
   | "completed"
   | "cancelled";
 
+export interface TierQuote {
+  car_type: string;
+  name: string;
+  multiplier: number;
+  price_sum: number;
+  final_price: number;
+}
+
 export interface EstimateResponse {
   distance_km: number;
   duration_min: number;
@@ -173,6 +181,8 @@ export interface EstimateResponse {
   price_per_km: number;
   night: boolean;
   night_multiplier: number;
+  car_type: string;
+  tiers: TierQuote[];
   price_sum: number;
   discount: number;
   final_price: number;

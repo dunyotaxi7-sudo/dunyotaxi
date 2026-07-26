@@ -46,6 +46,11 @@ class Ride(Base):
     distance_km: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
     duration_min: Mapped[int | None] = mapped_column(SmallInteger)
     price_sum: Mapped[int | None] = mapped_column(Integer)
+    # The service tier the passenger chose (car_types.code); scales the fare and
+    # restricts dispatch to matching drivers.
+    car_type: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default="econom", default="econom"
+    )
 
     status: Mapped[str] = mapped_column(String(20), default="searching")
     cancelled_by: Mapped[str | None] = mapped_column(String(10))

@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useRef, useState } from "react";
-import { driversApi, usersApi } from "@/lib/api";
+import { carTypesApi, driversApi, usersApi } from "@/lib/api";
 import { apiError } from "@/lib/axios";
 import { formatDate, formatSom } from "@/lib/format";
 import type { DriverStatus } from "@/lib/types";
@@ -89,7 +89,9 @@ export default function DriverDetailPage() {
     car_number: "",
     car_color: "",
     car_year: "",
+    car_class: "econom",
   });
+  const carTypes = useQuery({ queryKey: ["car-types"], queryFn: () => carTypesApi.list() });
   const startEdit = () => {
     if (!driver) return;
     setForm({
@@ -98,6 +100,7 @@ export default function DriverDetailPage() {
       car_number: driver.car_number ?? "",
       car_color: driver.car_color ?? "",
       car_year: driver.car_year ? String(driver.car_year) : "",
+      car_class: driver.car_class ?? "econom",
     });
     setEditing(true);
   };
@@ -109,6 +112,7 @@ export default function DriverDetailPage() {
         car_number: form.car_number.trim() || undefined,
         car_color: form.car_color.trim() || undefined,
         car_year: form.car_year ? Number(form.car_year) : undefined,
+        car_class: form.car_class || undefined,
       }),
     onSuccess: () => {
       setEditing(false);
@@ -171,6 +175,15 @@ export default function DriverDetailPage() {
                 <input className="input" inputMode="numeric" value={form.car_year}
                   onChange={(e) => setForm({ ...form, car_year: e.target.value.replace(/[^\d]/g, "").slice(0, 4) })} />
               </div>
+              <div>
+                <label className="label">Tarif (avtomobil turi)</label>
+                <select className="input" value={form.car_class}
+                  onChange={(e) => setForm({ ...form, car_class: e.target.value })}>
+                  {(carTypes.data ?? []).map((ct) => (
+                    <option key={ct.code} value={ct.code}>{ct.name_uz}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             {saveProfile.isError && <ErrorBlock message={apiError(saveProfile.error)} />}
             <div className="flex gap-2">
@@ -195,7 +208,11 @@ export default function DriverDetailPage() {
               {driver.car_color ? ` · ${driver.car_color}` : ""}
               {driver.car_year ? ` · ${driver.car_year}` : ""}
             </div>
-            <div className="text-sm text-muted mt-1">★ {Number(driver.rating).toFixed(2)} · {driver.total_rides} sayohat</div>
+            <div className="text-sm text-muted mt-1">
+              ★ {Number(driver.rating).toFixed(2)} · {driver.total_rides} sayohat
+              {" · "}
+              {carTypes.data?.find((c) => c.code === driver.car_class)?.name_uz ?? driver.car_class}
+            </div>
             <div className="mt-2 flex items-center gap-2">
               <Badge tone={STATUS_TONE[driver.status]}>{driverStatusLabel[driver.status]}</Badge>
               {driver.is_online ? <Badge tone="green">onlayn</Badge> : null}

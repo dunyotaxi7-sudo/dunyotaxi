@@ -8,6 +8,7 @@ import { formatDate, formatSom } from "@/lib/format";
 import { computeFare, type FareInputs } from "@/lib/pricing";
 import type { PricingConfig, PricingConfigUpdate } from "@/lib/types";
 import { ErrorBlock, LoadingBlock } from "@/components/ui";
+import { CarTypesCard } from "@/components/CarTypesCard";
 
 // Editable fields as strings (so inputs can be cleared while typing).
 interface FormState {
@@ -113,6 +114,7 @@ export default function PricingPage() {
   };
 
   return (
+    <div className="space-y-6">
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
       {/* Form */}
       <form onSubmit={onSave} className="lg:col-span-3 card p-6 space-y-5">
@@ -237,6 +239,8 @@ export default function PricingPage() {
           </p>
         </div>
       </div>
+    </div>
+    <CarTypesCard />
     </div>
   );
 }

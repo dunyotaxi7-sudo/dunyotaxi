@@ -15,6 +15,7 @@ from app.api.deps import get_current_driver, get_current_user, get_redis_dep
 from app.core.database import get_db
 from app.models import Driver, Rating, Ride, User
 from app.schemas.ride import (
+    CarTypePublic,
     EstimateRequest,
     EstimateResponse,
     NearbyDriver,
@@ -26,7 +27,7 @@ from app.schemas.ride import (
     RidePublic,
     RideRequest,
 )
-from app.services import matching, ride as ride_service
+from app.services import matching, pricing, ride as ride_service
 
 router = APIRouter(prefix="/rides", tags=["rides"])
 
@@ -50,6 +51,19 @@ async def nearby_drivers(
     return [NearbyDriver(**row) for row in rows]
 
 
+@router.get("/car-types", response_model=list[CarTypePublic])
+async def car_types(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Active service tiers for the ride-type selector."""
+    tiers = await pricing.get_active_car_types(db)
+    return [
+        CarTypePublic(code=t.code, name_uz=t.name_uz, multiplier=float(t.multiplier))
+        for t in tiers
+    ]
+
+
 # ── Estimate ──────────────────────────────────────────────────────────
 
 
@@ -65,7 +79,7 @@ async def estimate(
             from_lat=payload.from_location.lat, from_lng=payload.from_location.lng,
             to_lat=payload.to_location.lat, to_lng=payload.to_location.lng,
             distance_km=payload.distance_km, promo_code=payload.promo_code,
-            at=datetime.now(),
+            at=datetime.now(), car_type=payload.car_type,
         )
     except ride_service.RideError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
