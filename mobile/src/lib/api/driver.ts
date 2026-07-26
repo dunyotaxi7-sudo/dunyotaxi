@@ -37,19 +37,25 @@ export const driverApi = {
     uri: string,
     onProgress?: (pct: number) => void,
   ) => {
-    const name = uri.split("/").pop() || `${docType}.jpg`;
-    const ext = name.split(".").pop()?.toLowerCase();
+    // The backend validates by file extension, so guarantee a known one — some
+    // Android picker URIs come back without a usable extension.
+    const raw = uri.split("/").pop() || "";
+    const ext = raw.split(".").pop()?.toLowerCase();
+    const known = ext && ["jpg", "jpeg", "png", "pdf"].includes(ext);
     const mime =
       ext === "png" ? "image/png" : ext === "pdf" ? "application/pdf" : "image/jpeg";
+    const name = known ? raw : `${docType}.jpg`;
 
     const form = new FormData();
     form.append("doc_type", docType);
     // React Native's FormData file shape.
     form.append("file", { uri, name, type: mime } as unknown as Blob);
 
+    // Do NOT set Content-Type here: React Native fills in
+    // "multipart/form-data; boundary=…" itself. Setting it manually drops the
+    // boundary, and the server then can't parse the body (empty/‑rejected file).
     return api
       .post<DriverDocument>("/driver/documents/upload", form, {
-        headers: { "Content-Type": "multipart/form-data" },
         onUploadProgress: (e) => {
           if (onProgress && e.total) onProgress(Math.round((e.loaded / e.total) * 100));
         },
