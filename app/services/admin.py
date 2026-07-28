@@ -187,6 +187,30 @@ async def list_rides(
     ]
 
 
+async def cancel_ride(
+    db: AsyncSession, admin_id: uuid.UUID, ride_id: uuid.UUID,
+    reason: str | None, ip: str | None,
+):
+    """Force-cancel a stuck ride from the panel (e.g. a trip a driver never
+    completed). No-op-safe: refuses an already finished ride."""
+    ride = await db.get(Ride, ride_id)
+    if ride is None:
+        raise ValueError("ride not found")
+    if ride.status in ("completed", "cancelled"):
+        raise ValueError("ride already finished")
+    ride.status = "cancelled"
+    ride.cancelled_by = "admin"
+    ride.cancel_reason = reason or "Administrator tomonidan bekor qilindi"
+    await log_action(
+        db, admin_id, "ride_cancel", entity_type="ride",
+        entity_id=str(ride_id), new_value={"reason": ride.cancel_reason},
+        ip_address=ip,
+    )
+    await db.commit()
+    await db.refresh(ride)
+    return ride
+
+
 async def ride_detail(db: AsyncSession, ride_id: uuid.UUID) -> dict | None:
     ride = await db.get(Ride, ride_id)
     if ride is None:

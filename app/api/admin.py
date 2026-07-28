@@ -89,7 +89,7 @@ from app.schemas.operator import (
     OperatorPublic,
     OperatorUpdate,
 )
-from app.schemas.ride import RidePublic
+from app.schemas.ride import RideCancel, RidePublic
 from app.models import AdminAuditLog, Ride
 from app.services import admin as admin_service
 from app.services import operator as operator_service
@@ -445,6 +445,24 @@ async def ride_detail(
     if data is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "ride not found")
     return AdminRideDetail(**data)
+
+
+@router.post("/rides/{ride_id}/cancel", response_model=RidePublic)
+async def cancel_ride(
+    ride_id: uuid.UUID,
+    payload: RideCancel,
+    request: Request,
+    admin: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Force-cancel a stuck/active ride from the panel."""
+    try:
+        ride = await admin_service.cancel_ride(
+            db, admin.id, ride_id, payload.reason, client_ip(request)
+        )
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+    return RidePublic.model_validate(ride)
 
 
 # ── Live map ──────────────────────────────────────────────────────────

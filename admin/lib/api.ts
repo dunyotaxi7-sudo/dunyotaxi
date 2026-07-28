@@ -168,6 +168,8 @@ export const ridesApi = {
       .then((r) => r.data),
   detail: (id: string) =>
     api.get<AdminRideDetail>(`/admin/rides/${id}`).then((r) => r.data),
+  cancel: (id: string, reason?: string) =>
+    api.post(`/admin/rides/${id}/cancel`, { reason }).then((r) => r.data),
 };
 
 // ── Orders (manual admin dispatch) ────────────────────────────────────

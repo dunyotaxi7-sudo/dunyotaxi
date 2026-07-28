@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ridesApi } from "@/lib/api";
@@ -13,14 +13,20 @@ import { label, paymentLabel, rideStatusLabel } from "@/lib/strings";
 
 export default function RideDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const qc = useQueryClient();
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["admin-ride", id],
     queryFn: () => ridesApi.detail(id),
+  });
+  const cancel = useMutation({
+    mutationFn: (reason?: string) => ridesApi.cancel(id, reason),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-ride", id] }),
   });
 
   if (isLoading) return <LoadingBlock />;
   if (isError) return <ErrorBlock message={apiError(error)} />;
   const r = data!;
+  const active = !["completed", "cancelled"].includes(r.status);
 
   const markers: MapMarker[] = [
     { id: "from", position: { lat: r.from_lat, lng: r.from_lng }, title: "Qabul qilish nuqtasi", subtitle: r.from_address },
@@ -32,12 +38,27 @@ export default function RideDetailPage() {
     <div className="space-y-6">
       <Link href="/rides" className="text-sm text-primary hover:underline">← Sayohatlarga qaytish</Link>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <h2 className="text-lg font-semibold">Sayohat {r.id.slice(0, 8)}</h2>
         <Badge tone={r.status === "completed" ? "green" : r.status === "cancelled" ? "red" : "blue"}>
           {rideStatusLabel[r.status]}
         </Badge>
+        {active && (
+          <button
+            className="btn btn-ghost btn-sm ml-auto text-red-600"
+            disabled={cancel.isPending}
+            onClick={() => {
+              const reason = window.prompt(
+                "Sayohatni bekor qilish sababi? (ixtiyoriy)",
+              );
+              if (reason !== null) cancel.mutate(reason || undefined);
+            }}
+          >
+            {cancel.isPending ? "Bekor qilinmoqda…" : "Sayohatni bekor qilish"}
+          </button>
+        )}
       </div>
+      {cancel.isError && <ErrorBlock message={apiError(cancel.error)} />}
 
       {/* Route map */}
       <div className="card overflow-hidden" style={{ height: "40vh" }}>
