@@ -9,7 +9,13 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Map, type Coords, type MapHandle, type MapMarker } from "@/components/Map";
+import {
+  Map,
+  type Coords,
+  type MapHandle,
+  type MapMarker,
+  useRoutePoints,
+} from "@/components/Map";
 import { ridesApi } from "@/lib/api/rides";
 import { useRideSocket } from "@/lib/ws/useRideSocket";
 import { Button } from "@/components/ui/Button";
@@ -70,6 +76,8 @@ export default function ActiveRideScreen() {
 
   const pickup: Coords | undefined = from?.coords;
   const dropoff: Coords | undefined = to?.coords;
+  // Real road route pickup → dropoff (straight-line fallback).
+  const routePoints = useRoutePoints(pickup ?? null, dropoff ?? null);
 
   const markers: MapMarker[] = [];
   if (driverLocation)
@@ -98,7 +106,7 @@ export default function ActiveRideScreen() {
         <Map
           ref={mapRef}
           markers={markers}
-          route={pickup && dropoff ? [pickup, dropoff] : undefined}
+          route={routePoints}
           initialCamera={
             pickup ?? driverLocation
               ? { center: (pickup ?? driverLocation)!, zoom: 14 }

@@ -3,7 +3,13 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Map, type MapHandle, type MapMarker, useCurrentLocation } from "@/components/Map";
+import {
+  Map,
+  type MapHandle,
+  type MapMarker,
+  useCurrentLocation,
+  useRoutePoints,
+} from "@/components/Map";
 import { driverApi } from "@/lib/api/driver";
 import { Button } from "@/components/ui/Button";
 import { callPhone, openExternalNav } from "@/lib/nav";
@@ -23,6 +29,15 @@ export default function DriverPickupScreen() {
     refetchInterval: 3000,
   });
   const ride = view.data;
+
+  // Road route from the driver to the pickup. Round the (moving) driver
+  // position to ~110m so it only re-routes when they've meaningfully moved,
+  // instead of on every GPS tick.
+  const r3 = (n: number) => Math.round(n * 1000) / 1000;
+  const routePoints = useRoutePoints(
+    location.coords ? { lat: r3(location.coords.lat), lng: r3(location.coords.lng) } : null,
+    ride ? { lat: ride.from_lat, lng: ride.from_lng } : null,
+  );
 
   // Frame driver + pickup.
   const fitted = useRef(false);
@@ -92,7 +107,7 @@ export default function DriverPickupScreen() {
         <Map
           ref={mapRef}
           markers={markers}
-          route={location.coords ? [location.coords, { lat: ride.from_lat, lng: ride.from_lng }] : undefined}
+          route={routePoints}
           initialCamera={{ center: { lat: ride.from_lat, lng: ride.from_lng }, zoom: 14 }}
           showUserLocation
         />

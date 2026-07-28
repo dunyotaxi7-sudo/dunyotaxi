@@ -3,7 +3,7 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Map, type MapHandle, type MapMarker } from "@/components/Map";
+import { Map, type MapHandle, type MapMarker, useRoutePoints } from "@/components/Map";
 import { driverApi } from "@/lib/api/driver";
 import { Button } from "@/components/ui/Button";
 import { formatSom } from "@/lib/format";
@@ -23,6 +23,12 @@ export default function DriverTripScreen() {
     refetchInterval: 4000,
   });
   const ride = view.data;
+
+  // Real road route pickup → dropoff (straight-line fallback).
+  const routePoints = useRoutePoints(
+    ride ? { lat: ride.from_lat, lng: ride.from_lng } : null,
+    ride ? { lat: ride.to_lat, lng: ride.to_lng } : null,
+  );
 
   const fitted = useRef(false);
   useEffect(() => {
@@ -68,10 +74,7 @@ export default function DriverTripScreen() {
         <Map
           ref={mapRef}
           markers={markers}
-          route={[
-            { lat: ride.from_lat, lng: ride.from_lng },
-            { lat: ride.to_lat, lng: ride.to_lng },
-          ]}
+          route={routePoints}
           initialCamera={{ center: { lat: ride.to_lat, lng: ride.to_lng }, zoom: 13 }}
           showUserLocation
         />
