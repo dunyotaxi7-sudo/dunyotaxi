@@ -9,6 +9,7 @@ import { computeFare, type FareInputs } from "@/lib/pricing";
 import type { PricingConfig, PricingConfigUpdate } from "@/lib/types";
 import { ErrorBlock, LoadingBlock } from "@/components/ui";
 import { CarTypesCard } from "@/components/CarTypesCard";
+import { CarModelsCard } from "@/components/CarModelsCard";
 
 // Editable fields as strings (so inputs can be cleared while typing).
 interface FormState {
@@ -241,6 +242,7 @@ export default function PricingPage() {
       </div>
     </div>
     <CarTypesCard />
+    <CarModelsCard />
     </div>
   );
 }

@@ -115,6 +115,26 @@ async def get_active_car_types(db: AsyncSession) -> list[CarType]:
     return list(res.scalars())
 
 
+async def eligible_car_classes(db: AsyncSession, car_type: str) -> list[str]:
+    """Tiers that may serve a ``car_type`` order.
+
+    Tiers form a hierarchy by sort_order: a driver of a higher-or-equal rank
+    serves the order. So an Econom order can be taken by Econom/Komfort/Biznes
+    drivers; a Biznes order only by Biznes. Falls back to an exact match if the
+    tier isn't found.
+    """
+    rank = await db.execute(
+        select(CarType.sort_order).where(CarType.code == car_type)
+    )
+    order_rank = rank.scalar_one_or_none()
+    if order_rank is None:
+        return [car_type]
+    res = await db.execute(
+        select(CarType.code).where(CarType.sort_order >= order_rank)
+    )
+    return [c for c in res.scalars()]
+
+
 async def get_promo_by_code(db: AsyncSession, code: str | None) -> PromoCode | None:
     if not code:
         return None

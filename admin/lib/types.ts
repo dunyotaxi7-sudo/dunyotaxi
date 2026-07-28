@@ -132,6 +132,13 @@ export interface CarTypeAdmin {
   is_active: boolean;
 }
 
+export interface CarModelAdmin {
+  id: number;
+  name: string;
+  car_type: string;
+  is_active: boolean;
+}
+
 export interface DocumentPublic {
   id: string;
   driver_id: string;

@@ -16,6 +16,7 @@ from fastapi import (
     status,
 )
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
@@ -29,6 +30,7 @@ from app.api.deps import (
 from app.core.database import get_db
 from app.models import (
     BonusCampaign,
+    CarModel,
     CarType,
     CommissionConfig,
     Driver,
@@ -52,6 +54,9 @@ from app.schemas.admin import (
     BonusCampaignCreate,
     BonusCampaignPublic,
     BonusCampaignUpdate,
+    CarModelCreate,
+    CarModelPublic,
+    CarModelUpdate,
     CarTypeAdmin,
     CarTypeUpdate,
     CommissionConfigCreate,
@@ -561,6 +566,66 @@ async def update_car_type(
     await db.commit()
     await db.refresh(car)
     return CarTypeAdmin.model_validate(car)
+
+
+# ── Car-model catalog (model → tariff) ────────────────────────────────
+
+
+@router.get("/car-models", response_model=list[CarModelPublic])
+async def list_car_models(db: AsyncSession = Depends(get_db)):
+    res = await db.execute(select(CarModel).order_by(CarModel.car_type, CarModel.name))
+    return [CarModelPublic.model_validate(m) for m in res.scalars()]
+
+
+@router.post("/car-models", response_model=CarModelPublic, status_code=201)
+async def create_car_model(
+    payload: CarModelCreate,
+    request: Request,
+    admin: User = Depends(require_permission("finance")),
+    db: AsyncSession = Depends(get_db),
+):
+    if await db.get(CarType, payload.car_type) is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "unknown car_type")
+    model = CarModel(name=payload.name.strip(), car_type=payload.car_type)
+    db.add(model)
+    try:
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Bu model allaqachon mavjud")
+    await admin_service.log_action(
+        db, admin.id, "car_model_create", entity_type="car_model",
+        entity_id=str(model.id), new_value=payload.model_dump(),
+        ip_address=client_ip(request),
+    )
+    await db.commit()
+    await db.refresh(model)
+    return CarModelPublic.model_validate(model)
+
+
+@router.patch("/car-models/{model_id}", response_model=CarModelPublic)
+async def update_car_model(
+    model_id: int,
+    payload: CarModelUpdate,
+    request: Request,
+    admin: User = Depends(require_permission("finance")),
+    db: AsyncSession = Depends(get_db),
+):
+    model = await db.get(CarModel, model_id)
+    if model is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "car model not found")
+    changes = payload.model_dump(exclude_none=True)
+    if "car_type" in changes and await db.get(CarType, changes["car_type"]) is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "unknown car_type")
+    for field, val in changes.items():
+        setattr(model, field, val.strip() if isinstance(val, str) else val)
+    await admin_service.log_action(
+        db, admin.id, "car_model_update", entity_type="car_model",
+        entity_id=str(model_id), new_value=changes, ip_address=client_ip(request),
+    )
+    await db.commit()
+    await db.refresh(model)
+    return CarModelPublic.model_validate(model)
 
 
 @router.get("/commission", response_model=list[CommissionConfigPublic])

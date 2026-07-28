@@ -56,13 +56,14 @@ async def find_nearest_drivers(
     exclude: set[str] | None = None,
     limit: int = 10,
     radii: list[int] | None = None,
-    car_type: str | None = None,
+    car_classes: list[str] | None = None,
 ) -> list[Candidate]:
     """Return ranked, eligible candidate drivers near (lat, lng).
 
     ``exclude`` is a set of driver-id strings to skip (e.g. drivers that already
-    rejected this ride, or are busy). ``car_type`` restricts to drivers whose
-    car_class serves that tier (None = any tier, for display/nearby queries).
+    rejected this ride, or are busy). ``car_classes`` restricts to drivers whose
+    car_class is in that set — the tiers eligible to serve the order, including
+    higher tiers via the hierarchy (None = any tier, for display/nearby queries).
     """
     radii = radii or settings.match_radii_meters
     exclude = exclude or set()
@@ -81,8 +82,8 @@ async def find_nearest_drivers(
         Driver.is_online.is_(True),
         func.coalesce(Wallet.balance, 0) > settings.min_driver_balance,
     ]
-    if car_type is not None:
-        conditions.append(Driver.car_class == car_type)
+    if car_classes is not None:
+        conditions.append(Driver.car_class.in_(car_classes))
     res = await db.execute(
         select(Driver.id, Driver.rating)
         .outerjoin(Wallet, Wallet.user_id == Driver.user_id)

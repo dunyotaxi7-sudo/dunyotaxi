@@ -6,6 +6,7 @@ the database and are intentionally NOT reproduced here.
 from app.models.user import User, Driver, DriverDocument
 from app.models.ride import Ride, Payment, Rating
 from app.models.finance import (
+    CarModel,
     CarType,
     PricingConfig,
     CommissionConfig,
@@ -28,6 +29,7 @@ __all__ = [
     "Ride",
     "Payment",
     "Rating",
+    "CarModel",
     "CarType",
     "PricingConfig",
     "CommissionConfig",

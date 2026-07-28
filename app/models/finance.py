@@ -26,7 +26,10 @@ from app.models.common import created_at_col, updated_at_col, uuid_pk
 
 class CarType(Base):
     """A service tier (Econom/Komfort/Biznes). The fare is the base fare scaled
-    by ``multiplier``; drivers and rides reference a tier by ``code``."""
+    by ``multiplier``; drivers and rides reference a tier by ``code``.
+
+    ``sort_order`` also ranks the tiers for the dispatch hierarchy: a driver of
+    a higher rank serves their tier and every lower-ranked tier."""
 
     __tablename__ = "car_types"
 
@@ -36,6 +39,20 @@ class CarType(Base):
         Numeric(4, 2), nullable=False, default=Decimal("1.00")
     )
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
+class CarModel(Base):
+    """A car model in the catalog, tied to a tier. A driver's car_class is set
+    from their chosen model's tier."""
+
+    __tablename__ = "car_models"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(60), nullable=False, unique=True)
+    car_type: Mapped[str] = mapped_column(
+        String(20), ForeignKey("car_types.code"), nullable=False
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
 

@@ -89,6 +89,24 @@ class CarTypeUpdate(BaseModel):
     is_active: bool | None = None
 
 
+class CarModelPublic(ORMModel):
+    id: int
+    name: str
+    car_type: str
+    is_active: bool
+
+
+class CarModelCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=60)
+    car_type: str = Field(..., max_length=20)
+
+
+class CarModelUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=60)
+    car_type: str | None = Field(default=None, max_length=20)
+    is_active: bool | None = None
+
+
 class CommissionConfigPublic(ORMModel):
     id: int
     driver_id: uuid.UUID | None = None

@@ -23,6 +23,7 @@ import type {
   PassengerDetail,
   PassengerRow,
   UpdatePassengerInput,
+  CarModelAdmin,
   CarTypeAdmin,
   PricingConfig,
   PricingConfigUpdate,
@@ -227,6 +228,15 @@ export const carTypesApi = {
     body: { name_uz?: string; multiplier?: number; sort_order?: number; is_active?: boolean },
   ) =>
     api.patch<CarTypeAdmin>(`/admin/car-types/${code}`, body).then((r) => r.data),
+};
+
+export const carModelsApi = {
+  list: () =>
+    api.get<CarModelAdmin[]>("/admin/car-models").then((r) => r.data),
+  create: (body: { name: string; car_type: string }) =>
+    api.post<CarModelAdmin>("/admin/car-models", body).then((r) => r.data),
+  update: (id: number, body: { name?: string; car_type?: string; is_active?: boolean }) =>
+    api.patch<CarModelAdmin>(`/admin/car-models/${id}`, body).then((r) => r.data),
 };
 
 export const pricingApi = {

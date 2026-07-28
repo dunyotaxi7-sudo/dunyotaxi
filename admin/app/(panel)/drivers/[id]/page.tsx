@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useRef, useState } from "react";
-import { carTypesApi, driversApi, usersApi } from "@/lib/api";
+import { carModelsApi, carTypesApi, driversApi, usersApi } from "@/lib/api";
 import { apiError } from "@/lib/axios";
 import { formatDate, formatSom } from "@/lib/format";
 import type { DriverStatus } from "@/lib/types";
@@ -92,6 +92,7 @@ export default function DriverDetailPage() {
     car_class: "econom",
   });
   const carTypes = useQuery({ queryKey: ["car-types"], queryFn: () => carTypesApi.list() });
+  const carModels = useQuery({ queryKey: ["car-models"], queryFn: () => carModelsApi.list() });
   const startEdit = () => {
     if (!driver) return;
     setForm({
@@ -154,6 +155,24 @@ export default function DriverDetailPage() {
                 <label className="label">Ism</label>
                 <input className="input" value={form.full_name}
                   onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
+              </div>
+              <div>
+                <label className="label">Model (katalogdan)</label>
+                <select
+                  className="input"
+                  value={
+                    carModels.data?.find((m) => m.name === form.car_model)?.id ?? ""
+                  }
+                  onChange={(e) => {
+                    const m = carModels.data?.find((x) => String(x.id) === e.target.value);
+                    if (m) setForm({ ...form, car_model: m.name, car_class: m.car_type });
+                  }}
+                >
+                  <option value="">Tanlang… (tarifni o'rnatadi)</option>
+                  {(carModels.data ?? []).filter((m) => m.is_active).map((m) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="label">Mashina modeli</label>

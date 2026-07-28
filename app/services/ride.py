@@ -304,9 +304,12 @@ async def _dispatch_loop(
                     driver_id, distance_m = first, 0.0
                     first = None
                 else:
+                    # The order's tier plus every higher tier (hierarchy): a
+                    # Komfort driver also serves Econom orders, etc.
+                    eligible = await pricing.eligible_car_classes(db, ride.car_type)
                     candidates = await matching.find_nearest_drivers(
                         db, r, lat, lng, exclude=rejected, limit=1,
-                        car_type=ride.car_type,
+                        car_classes=eligible,
                     )
                     if not candidates:
                         break
