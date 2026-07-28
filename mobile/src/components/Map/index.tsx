@@ -35,6 +35,8 @@ export {
   placeCoords,
 } from "./geocode";
 export type { PlaceSuggestion } from "./geocode";
+export { getRoute } from "./routing";
+export type { RouteResult } from "./routing";
 export { isWithinServiceArea, SERVICE_AREA_RINGS } from "./serviceArea";
 
 /** Imperative handle so callers can move the camera without touching the provider. */

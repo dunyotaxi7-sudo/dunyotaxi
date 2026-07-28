@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Map, type MapHandle, type MapMarker } from "@/components/Map";
+import { getRoute, Map, type MapHandle, type MapMarker } from "@/components/Map";
 import { ridesApi } from "@/lib/api/rides";
 import { apiError } from "@/lib/api/client";
 import { Button } from "@/components/ui/Button";
@@ -40,16 +40,29 @@ export default function EstimateScreen() {
     return () => clearTimeout(t);
   }, [from, to]);
 
+  // Real road route (OSRM): its geometry draws the line, its distance prices
+  // the trip. Falls back to a straight line + server ×1.4 estimate on failure.
+  const route = useQuery({
+    queryKey: ["route", from?.coords, to?.coords],
+    queryFn: () => getRoute(from!.coords, to!.coords),
+    enabled: Boolean(from && to),
+    staleTime: 5 * 60 * 1000,
+  });
+  const routeDistanceKm = route.data?.distanceKm;
+
   const estimate = useQuery({
-    queryKey: ["estimate", from?.coords, to?.coords, appliedPromo, carType],
+    // Re-price once the real distance arrives.
+    queryKey: ["estimate", from?.coords, to?.coords, appliedPromo, carType, routeDistanceKm],
     queryFn: () =>
       ridesApi.estimate({
         from: from!.coords,
         to: to!.coords,
         promoCode: appliedPromo ?? undefined,
         carType,
+        distanceKm: routeDistanceKm,
       }),
-    enabled: Boolean(from && to),
+    // Wait for the route lookup to settle so we don't price twice.
+    enabled: Boolean(from && to) && !route.isLoading,
   });
 
   const request = useMutation({
@@ -62,6 +75,7 @@ export default function EstimateScreen() {
         paymentMethod: payment,
         promoCode: appliedPromo ?? undefined,
         carType,
+        distanceKm: routeDistanceKm,
       }),
     onSuccess: (ride) => {
       router.replace({
@@ -101,7 +115,7 @@ export default function EstimateScreen() {
         <Map
           ref={mapRef}
           markers={markers}
-          route={[from.coords, to.coords]}
+          route={route.data?.points ?? [from.coords, to.coords]}
           initialCamera={{ center: mid, zoom: 13 }}
           showUserLocation={false}
         />

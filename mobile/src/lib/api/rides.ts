@@ -19,6 +19,8 @@ export interface EstimateInput {
   to: Coords;
   promoCode?: string;
   carType?: string;
+  /** Real routed distance (km); when set the server prices on it directly. */
+  distanceKm?: number;
 }
 
 export interface RequestRideInput {
@@ -29,6 +31,7 @@ export interface RequestRideInput {
   paymentMethod: PaymentMethod;
   promoCode?: string;
   carType?: string;
+  distanceKm?: number;
 }
 
 const geo = (c: Coords) => ({ lat: c.lat, lng: c.lng });
@@ -48,6 +51,7 @@ export const ridesApi = {
         to_location: geo(input.to),
         promo_code: input.promoCode || null,
         car_type: input.carType ?? "econom",
+        distance_km: input.distanceKm ?? null,
       })
       .then((r) => r.data),
 
@@ -61,6 +65,7 @@ export const ridesApi = {
         payment_method: input.paymentMethod,
         promo_code: input.promoCode || null,
         car_type: input.carType ?? "econom",
+        distance_km: input.distanceKm ?? null,
       })
       .then((r) => r.data),
 
