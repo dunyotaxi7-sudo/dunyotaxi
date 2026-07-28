@@ -239,7 +239,16 @@ export default function DriverDetailPage() {
                 }}>To'xtatib turish</button>
             )}
             <button className="btn btn-ghost" disabled={block.isPending}
-              onClick={() => block.mutate({ userId: driver.user_id, blocked: true })}>Hisobni bloklash</button>
+              onClick={() => {
+                const next = !driver.is_blocked;
+                const who = driver.full_name || "Bu haydovchi";
+                const msg = next
+                  ? `${who}ni bloklaysizmi? U ilovaga kira olmaydi va buyurtma qabul qila olmaydi.`
+                  : `${who}ni blokdan chiqarasizmi? U yana ishlashi mumkin bo'ladi.`;
+                if (window.confirm(msg)) block.mutate({ userId: driver.user_id, blocked: next });
+              }}>
+              {block.isPending ? "…" : driver.is_blocked ? "Blokdan chiqarish" : "Hisobni bloklash"}
+            </button>
           </div>
         </div>
         )}

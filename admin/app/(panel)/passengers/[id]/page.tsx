@@ -138,7 +138,14 @@ export default function PassengerDetailPage() {
               <button
                 className={`btn ${p.is_blocked ? "btn-ghost" : "btn-primary"}`}
                 disabled={block.isPending}
-                onClick={() => block.mutate(!p.is_blocked)}
+                onClick={() => {
+                  const next = !p.is_blocked;
+                  const who = p.full_name || "Bu foydalanuvchi";
+                  const msg = next
+                    ? `${who}ni bloklaysizmi? U ilovaga kira olmaydi va yangi buyurtma bera olmaydi.`
+                    : `${who}ni blokdan chiqarasizmi? U yana ilovadan foydalana oladi.`;
+                  if (window.confirm(msg)) block.mutate(next);
+                }}
               >
                 {block.isPending ? "…" : p.is_blocked ? "Blokdan chiqarish" : "Bloklash"}
               </button>

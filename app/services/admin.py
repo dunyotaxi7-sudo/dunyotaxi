@@ -521,7 +521,8 @@ async def list_drivers_with_balance(
 ) -> list[dict]:
     """Drivers with their wallet balance and a low-balance flag (for admin)."""
     stmt = (
-        select(Driver, User.full_name, User.phone, func.coalesce(Wallet.balance, 0))
+        select(Driver, User.full_name, User.phone, User.is_blocked,
+               func.coalesce(Wallet.balance, 0))
         .join(User, User.id == Driver.user_id)
         .outerjoin(Wallet, Wallet.user_id == Driver.user_id)
     )
@@ -531,7 +532,7 @@ async def list_drivers_with_balance(
 
     rows = await db.execute(stmt)
     out = []
-    for d, name, phone, bal in rows:
+    for d, name, phone, is_blocked, bal in rows:
         bal = int(bal)
         out.append({
             "id": d.id,
@@ -546,6 +547,7 @@ async def list_drivers_with_balance(
             "total_rides": d.total_rides,
             "status": d.status,
             "is_online": d.is_online,
+            "is_blocked": is_blocked,
             "balance": bal,
             "low_balance": bal <= settings.min_driver_balance,
         })
@@ -624,6 +626,7 @@ def _driver_row(driver, user, balance: int) -> dict:
         "total_rides": driver.total_rides,
         "status": driver.status,
         "is_online": driver.is_online,
+        "is_blocked": user.is_blocked if user else False,
         "balance": balance,
         "low_balance": balance <= settings.min_driver_balance,
     }

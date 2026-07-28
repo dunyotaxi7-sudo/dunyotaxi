@@ -361,6 +361,7 @@ class AdminDriverRow(BaseModel):
     total_rides: int
     status: str
     is_online: bool
+    is_blocked: bool = False
     balance: int
     low_balance: bool
 

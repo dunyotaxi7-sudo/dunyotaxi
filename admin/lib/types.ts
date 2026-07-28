@@ -56,6 +56,7 @@ export interface DriverPublic {
   total_rides: number;
   status: DriverStatus;
   is_online: boolean;
+  is_blocked: boolean;
   balance: number; // so'm
   low_balance: boolean;
 }
