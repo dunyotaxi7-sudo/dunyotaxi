@@ -16,7 +16,7 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -27,12 +27,18 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = uuid_pk()
-    phone: Mapped[str] = mapped_column(String(13), unique=True, nullable=False)
+    # Nullable because operators authenticate by username, not phone.
+    phone: Mapped[str | None] = mapped_column(String(13), unique=True)
     full_name: Mapped[str] = mapped_column(String(100), nullable=False)
     role: Mapped[str] = mapped_column(String(10), nullable=False)
     avatar_url: Mapped[str | None] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Operator staff (role='operator'): username/password login + permission
+    # flags {"deposit": bool, "moderate_drivers": bool, "finance": bool}.
+    username: Mapped[str | None] = mapped_column(String(50), unique=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255))
+    permissions: Mapped[dict | None] = mapped_column(JSONB)
     blocked_reason: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = created_at_col()
     updated_at: Mapped[datetime] = updated_at_col()

@@ -11,7 +11,7 @@ pydantic==2.7.1
 pydantic-settings==2.3.0
 redis==5.0.4
 python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
+bcrypt==5.0.0           # operator password hashing (used directly, no passlib)
 python-multipart==0.0.9
 email-validator==2.1.1
 httpx==0.27.0            # also used for Expo push delivery

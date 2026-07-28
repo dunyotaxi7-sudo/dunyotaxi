@@ -32,6 +32,9 @@ import type {
   RideStatus,
   ServiceArea,
   Stats,
+  OperatorPermissions,
+  OperatorPublic,
+  OperatorTokenPair,
   TokenPair,
   UserLookup,
 } from "./types";
@@ -46,7 +49,28 @@ export const authApi = {
     api
       .post<TokenPair>("/auth/verify-otp", { phone, code })
       .then((r) => r.data),
+  operatorLogin: (username: string, password: string) =>
+    api
+      .post<OperatorTokenPair>("/auth/operator-login", { username, password })
+      .then((r) => r.data),
   me: () => api.get("/auth/me").then((r) => r.data),
+};
+
+export const operatorsApi = {
+  list: () =>
+    api.get<OperatorPublic[]>("/admin/operators").then((r) => r.data),
+  create: (body: {
+    username: string;
+    password: string;
+    full_name: string;
+    permissions: OperatorPermissions;
+  }) => api.post<OperatorPublic>("/admin/operators", body).then((r) => r.data),
+  update: (
+    id: string,
+    body: { full_name?: string; permissions?: OperatorPermissions; is_active?: boolean },
+  ) => api.patch<OperatorPublic>(`/admin/operators/${id}`, body).then((r) => r.data),
+  setPassword: (id: string, password: string) =>
+    api.post(`/admin/operators/${id}/password`, { password }).then((r) => r.data),
 };
 
 // ── Stats ─────────────────────────────────────────────────────────────

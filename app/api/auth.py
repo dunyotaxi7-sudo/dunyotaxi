@@ -24,10 +24,44 @@ from app.schemas.auth import (
     UserPublic,
     VerifyOTP,
 )
+from app.schemas.operator import (
+    OperatorLogin,
+    OperatorPermissions,
+    OperatorPublic,
+    OperatorTokenPair,
+)
 from app.services import auth as auth_service
+from app.services import operator as operator_service
 from app.services import otp as otp_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+@router.post("/operator-login", response_model=OperatorTokenPair)
+async def operator_login(
+    payload: OperatorLogin,
+    db: AsyncSession = Depends(get_db),
+):
+    """Username + password login for operator staff (not phone/OTP)."""
+    try:
+        user = await operator_service.authenticate(
+            db, payload.username, payload.password
+        )
+    except operator_service.OperatorError as e:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, str(e))
+    access, refresh = auth_service.issue_tokens(user)
+    return OperatorTokenPair(
+        access_token=access,
+        refresh_token=refresh,
+        operator=OperatorPublic(
+            id=user.id,
+            username=user.username,
+            full_name=user.full_name,
+            role=user.role,
+            is_active=user.is_active,
+            permissions=OperatorPermissions(**(user.permissions or {})),
+        ),
+    )
 
 
 @router.post("/request-otp", response_model=RequestOTPResponse)

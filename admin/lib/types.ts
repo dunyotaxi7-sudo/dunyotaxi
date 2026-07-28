@@ -1,7 +1,28 @@
 // Types mirroring the FastAPI backend schemas (app/schemas/*).
 // Money fields are integers in so'm.
 
-export type Role = "passenger" | "driver" | "admin";
+export type Role = "passenger" | "driver" | "admin" | "operator";
+
+export interface OperatorPermissions {
+  deposit: boolean;
+  moderate_drivers: boolean;
+  finance: boolean;
+}
+
+export interface OperatorPublic {
+  id: string;
+  username: string | null;
+  full_name: string;
+  role: string;
+  is_active: boolean;
+  permissions: OperatorPermissions;
+}
+
+export interface OperatorTokenPair {
+  access_token: string;
+  refresh_token: string;
+  operator: OperatorPublic;
+}
 
 export type DriverStatus = "pending" | "approved" | "rejected" | "suspended";
 
@@ -21,12 +42,14 @@ export type DocStatus = "pending" | "approved" | "rejected";
 
 export interface UserPublic {
   id: string;
-  phone: string;
+  phone: string | null;
   full_name: string;
   role: Role;
   avatar_url: string | null;
   is_active: boolean;
   is_blocked: boolean;
+  // Present only for operators — gates which sections they can use.
+  permissions?: OperatorPermissions;
 }
 
 export interface TokenPair {

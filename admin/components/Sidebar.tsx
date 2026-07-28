@@ -3,8 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon, type IconName } from "@/components/icons";
+import { useAuth } from "@/lib/auth-store";
+import type { OperatorPermissions } from "@/lib/types";
 
-const NAV: { href: string; label: string; icon: IconName }[] = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: IconName;
+  adminOnly?: boolean; // only full admins
+  requires?: keyof OperatorPermissions; // operators need this permission
+};
+
+const NAV: NavItem[] = [
   { href: "/", label: "Boshqaruv paneli", icon: "dashboard" },
   { href: "/drivers", label: "Haydovchilar", icon: "drivers" },
   { href: "/passengers", label: "Yo'lovchilar", icon: "passengers" },
@@ -12,15 +22,27 @@ const NAV: { href: string; label: string; icon: IconName }[] = [
   { href: "/live", label: "Jonli buyurtmalar", icon: "live" },
   { href: "/map", label: "Jonli xarita", icon: "map" },
   { href: "/rides", label: "Sayohatlar", icon: "rides" },
-  { href: "/pricing", label: "Narxlar", icon: "pricing" },
-  { href: "/commission", label: "Komissiya", icon: "commission" },
+  { href: "/pricing", label: "Narxlar", icon: "pricing", requires: "finance" },
+  { href: "/commission", label: "Komissiya", icon: "commission", requires: "finance" },
   { href: "/bonus", label: "Bonus va promo", icon: "bonus" },
+  { href: "/operators", label: "Operatorlar", icon: "passengers", adminOnly: true },
   { href: "/stats", label: "Statistika", icon: "stats" },
   { href: "/audit", label: "Audit jurnali", icon: "audit" },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const user = useAuth((s) => s.user);
+  const isAdmin = user?.role === "admin";
+
+  const nav = NAV.filter((item) => {
+    if (item.adminOnly && !isAdmin) return false;
+    // Operators lose finance-gated sections unless granted the permission.
+    if (item.requires && user?.role === "operator") {
+      return Boolean(user.permissions?.[item.requires]);
+    }
+    return true;
+  });
 
   return (
     <aside className="w-64 shrink-0 border-r border-border bg-surface flex flex-col h-screen sticky top-0">
@@ -37,7 +59,7 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
-        {NAV.map((item) => {
+        {nav.map((item) => {
           const active =
             item.href === "/"
               ? pathname === "/"

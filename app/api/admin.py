@@ -18,7 +18,14 @@ from fastapi import (
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import client_ip, get_redis_dep, require_role
+from app.api.deps import (
+    client_ip,
+    get_current_user,
+    get_redis_dep,
+    require_permission,
+    require_role,
+    require_staff,
+)
 from app.core.database import get_db
 from app.models import (
     BonusCampaign,
@@ -70,15 +77,23 @@ from app.schemas.admin import (
     UserBlock,
 )
 from app.schemas.driver import DocumentPublic, DriverPublic, OnlineDriver
+from app.schemas.operator import (
+    OperatorCreate,
+    OperatorPasswordChange,
+    OperatorPermissions,
+    OperatorPublic,
+    OperatorUpdate,
+)
 from app.schemas.ride import RidePublic
 from app.models import AdminAuditLog, Ride
 from app.services import admin as admin_service
+from app.services import operator as operator_service
 from app.services import driver as driver_service
 from app.services import location
 from app.services import service_area
 
 router = APIRouter(
-    prefix="/admin", tags=["admin"], dependencies=[Depends(require_role("admin"))]
+    prefix="/admin", tags=["admin"], dependencies=[Depends(require_staff)]
 )
 
 
@@ -98,7 +113,7 @@ async def list_drivers(
 async def create_driver(
     payload: AdminDriverCreate,
     request: Request,
-    admin: User = Depends(require_role("admin")),
+    admin: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a driver (user + car profile) directly from the admin panel."""
@@ -116,7 +131,7 @@ async def update_driver_profile(
     driver_id: uuid.UUID,
     payload: AdminDriverProfileUpdate,
     request: Request,
-    admin: User = Depends(require_role("admin")),
+    admin: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Edit a driver's name and car details."""
@@ -145,7 +160,7 @@ async def adjust_driver_balance(
     driver_id: uuid.UUID,
     payload: DriverBalanceUpdate,
     request: Request,
-    admin: User = Depends(require_role("admin")),
+    admin: User = Depends(require_permission("deposit")),
     db: AsyncSession = Depends(get_db),
 ):
     """Deposit to (or deduct from) a driver's wallet balance."""
@@ -179,7 +194,7 @@ async def upload_driver_document(
     request: Request,
     doc_type: str = Form(...),
     file: UploadFile = File(...),
-    admin: User = Depends(require_role("admin")),
+    admin: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Upload a document for a driver on their behalf (admin panel)."""
@@ -207,7 +222,7 @@ async def moderate_driver(
     driver_id: uuid.UUID,
     payload: DriverModeration,
     request: Request,
-    admin: User = Depends(require_role("admin")),
+    admin: User = Depends(require_permission("moderate_drivers")),
     db: AsyncSession = Depends(get_db),
 ):
     if payload.status not in {"pending", "approved", "rejected", "suspended"}:
@@ -227,7 +242,7 @@ async def review_document(
     doc_id: uuid.UUID,
     payload: DocumentReview,
     request: Request,
-    admin: User = Depends(require_role("admin")),
+    admin: User = Depends(require_permission("moderate_drivers")),
     db: AsyncSession = Depends(get_db),
 ):
     if payload.status not in {"approved", "rejected"}:
@@ -247,7 +262,7 @@ async def block_user(
     user_id: uuid.UUID,
     payload: UserBlock,
     request: Request,
-    admin: User = Depends(require_role("admin")),
+    admin: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     try:
@@ -285,7 +300,7 @@ async def user_by_phone(
 async def create_passenger(
     payload: AdminPassengerCreate,
     request: Request,
-    admin: User = Depends(require_role("admin")),
+    admin: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a passenger (client) directly from the admin panel."""
@@ -314,7 +329,7 @@ async def update_passenger(
     user_id: uuid.UUID,
     payload: PassengerUpdate,
     request: Request,
-    admin: User = Depends(require_role("admin")),
+    admin: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Edit a passenger's name and/or phone."""
@@ -355,7 +370,7 @@ async def get_service_area(db: AsyncSession = Depends(get_db)):
 async def update_service_area(
     payload: ServiceAreaUpdate,
     request: Request,
-    admin: User = Depends(require_role("admin")),
+    admin: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     try:
@@ -377,7 +392,7 @@ async def update_service_area(
 async def create_order(
     payload: AdminOrderCreate,
     request: Request,
-    admin: User = Depends(require_role("admin")),
+    admin: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a ride for a passenger (by phone) and connect it to a driver —
@@ -468,7 +483,7 @@ async def list_pricing(db: AsyncSession = Depends(get_db)):
 async def create_pricing(
     payload: PricingConfigCreate,
     request: Request,
-    admin: User = Depends(require_role("admin")),
+    admin: User = Depends(require_permission("finance")),
     db: AsyncSession = Depends(get_db),
 ):
     cfg = PricingConfig(**payload.model_dump(), updated_by=admin.id)
@@ -489,7 +504,7 @@ async def update_pricing(
     pricing_id: int,
     payload: PricingConfigUpdate,
     request: Request,
-    admin: User = Depends(require_role("admin")),
+    admin: User = Depends(require_permission("finance")),
     db: AsyncSession = Depends(get_db),
 ):
     cfg = await db.get(PricingConfig, pricing_id)
@@ -530,7 +545,7 @@ async def update_car_type(
     code: str,
     payload: CarTypeUpdate,
     request: Request,
-    admin: User = Depends(require_role("admin")),
+    admin: User = Depends(require_permission("finance")),
     db: AsyncSession = Depends(get_db),
 ):
     car = await db.get(CarType, code)
@@ -560,7 +575,7 @@ async def list_commission(db: AsyncSession = Depends(get_db)):
 async def create_commission(
     payload: CommissionConfigCreate,
     request: Request,
-    admin: User = Depends(require_role("admin")),
+    admin: User = Depends(require_permission("finance")),
     db: AsyncSession = Depends(get_db),
 ):
     data = payload.model_dump(exclude_none=True)
@@ -590,7 +605,7 @@ async def list_campaigns(db: AsyncSession = Depends(get_db)):
 async def create_campaign(
     payload: BonusCampaignCreate,
     request: Request,
-    admin: User = Depends(require_role("admin")),
+    admin: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     campaign = BonusCampaign(**payload.model_dump(), created_by=admin.id)
@@ -611,7 +626,7 @@ async def update_campaign(
     campaign_id: int,
     payload: BonusCampaignUpdate,
     request: Request,
-    admin: User = Depends(require_role("admin")),
+    admin: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     campaign = await db.get(BonusCampaign, campaign_id)
@@ -643,7 +658,7 @@ async def list_promos(db: AsyncSession = Depends(get_db)):
 async def create_promo(
     payload: PromoCodeCreate,
     request: Request,
-    admin: User = Depends(require_role("admin")),
+    admin: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     data = payload.model_dump()
@@ -671,7 +686,7 @@ async def update_promo(
     promo_id: int,
     payload: PromoCodeUpdate,
     request: Request,
-    admin: User = Depends(require_role("admin")),
+    admin: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     promo = await db.get(PromoCode, promo_id)
@@ -722,3 +737,93 @@ async def audit_logs(
         select(AdminAuditLog).order_by(AdminAuditLog.created_at.desc()).limit(limit)
     )
     return [AuditLogPublic.model_validate(a) for a in res.scalars()]
+
+
+# ── Operators (admin-only) ────────────────────────────────────────────
+
+
+def _operator_public(user: User) -> OperatorPublic:
+    return OperatorPublic(
+        id=user.id,
+        username=user.username,
+        full_name=user.full_name,
+        role=user.role,
+        is_active=user.is_active,
+        permissions=OperatorPermissions(**(user.permissions or {})),
+    )
+
+
+@router.get("/operators", response_model=list[OperatorPublic])
+async def list_operators(
+    admin: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    return [_operator_public(u) for u in await operator_service.list_operators(db)]
+
+
+@router.post("/operators", response_model=OperatorPublic, status_code=201)
+async def create_operator(
+    payload: OperatorCreate,
+    request: Request,
+    admin: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        user = await operator_service.create_operator(
+            db, username=payload.username, password=payload.password,
+            full_name=payload.full_name, permissions=payload.permissions,
+        )
+    except operator_service.OperatorError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+    await admin_service.log_action(
+        db, admin.id, "operator_create", entity_type="operator",
+        entity_id=str(user.id),
+        new_value={"username": payload.username,
+                   "permissions": payload.permissions.model_dump()},
+        ip_address=client_ip(request),
+    )
+    await db.commit()
+    await db.refresh(user)
+    return _operator_public(user)
+
+
+@router.patch("/operators/{operator_id}", response_model=OperatorPublic)
+async def update_operator(
+    operator_id: uuid.UUID,
+    payload: OperatorUpdate,
+    request: Request,
+    admin: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        user = await operator_service.update_operator(db, operator_id, payload)
+    except operator_service.OperatorError as e:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
+    await admin_service.log_action(
+        db, admin.id, "operator_update", entity_type="operator",
+        entity_id=str(operator_id),
+        new_value=payload.model_dump(exclude_none=True, mode="json"),
+        ip_address=client_ip(request),
+    )
+    await db.commit()
+    await db.refresh(user)
+    return _operator_public(user)
+
+
+@router.post("/operators/{operator_id}/password", status_code=204)
+async def set_operator_password(
+    operator_id: uuid.UUID,
+    payload: OperatorPasswordChange,
+    request: Request,
+    admin: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        await operator_service.set_password(db, operator_id, payload.password)
+    except operator_service.OperatorError as e:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
+    await admin_service.log_action(
+        db, admin.id, "operator_password_reset", entity_type="operator",
+        entity_id=str(operator_id), ip_address=client_ip(request),
+    )
+    await db.commit()

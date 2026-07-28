@@ -11,12 +11,40 @@ type Step = "phone" | "code";
 export default function LoginPage() {
   const router = useRouter();
   const { user, hydrated, hydrate, setSession } = useAuth();
+  const [mode, setMode] = useState<"admin" | "operator">("admin");
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("+998");
   const [code, setCode] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [debugCode, setDebugCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function operatorLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await authApi.operatorLogin(username.trim(), password);
+      const op = res.operator;
+      setSession(res.access_token, res.refresh_token, {
+        id: op.id,
+        phone: null,
+        full_name: op.full_name,
+        role: "operator",
+        avatar_url: null,
+        is_active: op.is_active,
+        is_blocked: false,
+        permissions: op.permissions,
+      });
+      router.replace("/");
+    } catch (err) {
+      setError(apiError(err));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => hydrate(), [hydrate]);
   useEffect(() => {
@@ -70,7 +98,49 @@ export default function LoginPage() {
           <div className="text-sm text-muted mt-1">Boshqaruv paneli</div>
         </div>
 
-        {step === "phone" ? (
+        {/* Admin (phone/OTP) vs Operator (login/password) */}
+        <div className="mb-5 grid grid-cols-2 gap-1 rounded-lg bg-[var(--surface-2)] p-1">
+          {(["admin", "operator"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => { setMode(m); setError(null); }}
+              className={`rounded-md py-1.5 text-sm font-medium transition-colors ${
+                mode === m ? "bg-surface text-foreground shadow-sm" : "text-muted"
+              }`}
+            >
+              {m === "admin" ? "Admin" : "Operator"}
+            </button>
+          ))}
+        </div>
+
+        {mode === "operator" ? (
+          <form onSubmit={operatorLogin} className="space-y-4">
+            <div>
+              <label className="label">Login</label>
+              <input
+                className="input"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="operator1"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="label">Parol</label>
+              <input
+                className="input"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••"
+              />
+            </div>
+            <button className="btn btn-primary w-full" disabled={loading}>
+              {loading ? "Tekshirilmoqda…" : "Kirish"}
+            </button>
+          </form>
+        ) : step === "phone" ? (
           <form onSubmit={requestOtp} className="space-y-4">
             <div>
               <label className="label">Telefon raqami</label>

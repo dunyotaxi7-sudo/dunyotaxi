@@ -52,6 +52,32 @@ def require_role(*roles: str):
     return _guard
 
 
+async def require_staff(user: User = Depends(get_current_user)) -> User:
+    """Admin panel access: full admins and operators."""
+    if user.role not in ("admin", "operator"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "staff only")
+    return user
+
+
+# Sensitive capabilities an operator needs an explicit permission for. Admins
+# always have all of them.
+PERMISSION_KEYS = ("deposit", "moderate_drivers", "finance")
+
+
+def require_permission(perm: str):
+    """Allow full admins, or operators whose permissions grant ``perm``."""
+    async def _guard(user: User = Depends(require_staff)) -> User:
+        if user.role == "admin":
+            return user
+        if (user.permissions or {}).get(perm) is True:
+            return user
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, f"ruxsat yo'q: {perm}"
+        )
+
+    return _guard
+
+
 async def get_current_driver(
     user: User = Depends(require_role("driver")),
     db: AsyncSession = Depends(get_db),
