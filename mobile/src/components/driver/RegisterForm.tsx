@@ -1,6 +1,8 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -11,6 +13,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import type { CarModelOption } from "@/lib/types";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { driverApi } from "@/lib/api/driver";
 import { apiError } from "@/lib/api/client";
@@ -21,6 +24,19 @@ import { colors, radius, spacing } from "@/theme/colors";
 
 // "01 A 123 BA" style plates (loose check; backend is source of truth).
 const PLATE_RE = /^\d{2}\s?[A-Z]\s?\d{3}\s?[A-Z]{2}$/i;
+
+const tierLabel = (code: string) => code.charAt(0).toUpperCase() + code.slice(1);
+
+/** Group models by tier, preserving the server's tier→name ordering. */
+function groupByTier(models: CarModelOption[]): [string, CarModelOption[]][] {
+  const out: [string, CarModelOption[]][] = [];
+  for (const m of models) {
+    const last = out[out.length - 1];
+    if (last && last[0] === m.car_type) last[1].push(m);
+    else out.push([m.car_type, [m]]);
+  }
+  return out;
+}
 
 export function DriverRegisterForm({ onDone }: { onDone: () => void }) {
   const { signOut } = useAuth();
@@ -125,30 +141,49 @@ export function DriverRegisterForm({ onDone }: { onDone: () => void }) {
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setPickerOpen(false)}>
           <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>{t.driver.register.carModel}</Text>
-            <ScrollView>
-              {(models.data ?? []).map((m) => {
-                const active = m.name === carModel;
-                return (
-                  <Pressable
-                    key={m.id}
-                    style={[styles.modelRow, active && styles.modelRowActive]}
-                    onPress={() => {
-                      setCarModel(m.name);
-                      setPickerOpen(false);
-                    }}
-                  >
-                    <Text style={styles.modelName}>{m.name}</Text>
-                    <Text style={styles.modelTier}>
-                      {m.car_type.charAt(0).toUpperCase() + m.car_type.slice(1)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-              {models.data && models.data.length === 0 ? (
-                <Text style={styles.modelEmpty}>{t.common.notFound}</Text>
-              ) : null}
-            </ScrollView>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t.driver.register.carModel}</Text>
+              <Pressable onPress={() => setPickerOpen(false)} hitSlop={10}>
+                <Ionicons name="close" size={24} color={colors.muted} />
+              </Pressable>
+            </View>
+
+            {models.isLoading ? (
+              <View style={styles.modalCenter}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            ) : !models.data?.length ? (
+              <Text style={styles.modelEmpty}>{t.common.notFound}</Text>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {groupByTier(models.data).map(([tier, list]) => (
+                  <View key={tier}>
+                    <Text style={styles.modelGroup}>{tierLabel(tier)}</Text>
+                    {list.map((m) => {
+                      const active = m.name === carModel;
+                      return (
+                        <Pressable
+                          key={m.id}
+                          style={[styles.modelRow, active && styles.modelRowActive]}
+                          onPress={() => {
+                            setCarModel(m.name);
+                            setPickerOpen(false);
+                          }}
+                        >
+                          <Text style={[styles.modelName, active && styles.modelNameActive]}>
+                            {m.name}
+                          </Text>
+                          {active ? (
+                            <Ionicons name="checkmark" size={20} color={colors.primary} />
+                          ) : null}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ))}
+              </ScrollView>
+            )}
           </Pressable>
         </Pressable>
       </Modal>
@@ -203,29 +238,50 @@ const styles = StyleSheet.create({
   },
   modalSheet: {
     backgroundColor: colors.bg,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: spacing(5),
-    maxHeight: "70%",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: spacing(5),
+    paddingBottom: spacing(6),
+    paddingTop: spacing(2),
+    maxHeight: "75%",
   },
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: colors.text,
+  modalHandle: {
+    alignSelf: "center",
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
     marginBottom: spacing(3),
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing(2),
+  },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: colors.text },
+  modalCenter: { paddingVertical: spacing(10), alignItems: "center" },
+  modelGroup: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.muted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: spacing(4),
+    marginBottom: spacing(1),
   },
   modelRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: spacing(3),
+    paddingVertical: spacing(3.5),
     paddingHorizontal: spacing(3),
     borderRadius: radius.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  modelRowActive: { backgroundColor: colors.surface },
+  modelRowActive: { backgroundColor: "#eef2ff", borderBottomColor: "transparent" },
   modelName: { fontSize: 16, color: colors.text },
-  modelTier: { fontSize: 13, color: colors.muted },
-  modelEmpty: { fontSize: 14, color: colors.muted, textAlign: "center", padding: spacing(4) },
+  modelNameActive: { color: colors.primary, fontWeight: "600" },
+  modelEmpty: { fontSize: 14, color: colors.muted, textAlign: "center", padding: spacing(8) },
 });
