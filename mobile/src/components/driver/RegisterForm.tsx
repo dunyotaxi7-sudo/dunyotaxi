@@ -1,7 +1,8 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -27,7 +28,13 @@ export function DriverRegisterForm({ onDone }: { onDone: () => void }) {
   const [carNumber, setCarNumber] = useState("");
   const [carColor, setCarColor] = useState("");
   const [carYear, setCarYear] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const models = useQuery({
+    queryKey: ["car-models"],
+    queryFn: () => driverApi.carModels(),
+  });
 
   const register = useMutation({
     mutationFn: () =>
@@ -60,12 +67,18 @@ export function DriverRegisterForm({ onDone }: { onDone: () => void }) {
           <Text style={styles.title}>{t.driver.register.title}</Text>
           <Text style={styles.subtitle}>{t.driver.register.subtitle}</Text>
 
-          <Field
-            label={t.driver.register.carModel}
-            value={carModel}
-            onChangeText={setCarModel}
-            placeholder={t.driver.register.carModelPlaceholder}
-          />
+          {/* Model comes from the catalog — it sets the driver's tariff. */}
+          <View style={styles.field}>
+            <Text style={styles.label}>{t.driver.register.carModel}</Text>
+            <Pressable
+              style={styles.input}
+              onPress={() => setPickerOpen(true)}
+            >
+              <Text style={carModel ? styles.pickerValue : styles.pickerPlaceholder}>
+                {carModel || t.driver.register.carModelPlaceholder}
+              </Text>
+            </Pressable>
+          </View>
           <Field
             label={t.driver.register.carNumber}
             value={carNumber}
@@ -103,6 +116,42 @@ export function DriverRegisterForm({ onDone }: { onDone: () => void }) {
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={pickerOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setPickerOpen(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setPickerOpen(false)}>
+          <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>{t.driver.register.carModel}</Text>
+            <ScrollView>
+              {(models.data ?? []).map((m) => {
+                const active = m.name === carModel;
+                return (
+                  <Pressable
+                    key={m.id}
+                    style={[styles.modelRow, active && styles.modelRowActive]}
+                    onPress={() => {
+                      setCarModel(m.name);
+                      setPickerOpen(false);
+                    }}
+                  >
+                    <Text style={styles.modelName}>{m.name}</Text>
+                    <Text style={styles.modelTier}>
+                      {m.car_type.charAt(0).toUpperCase() + m.car_type.slice(1)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+              {models.data && models.data.length === 0 ? (
+                <Text style={styles.modelEmpty}>{t.common.notFound}</Text>
+              ) : null}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -144,4 +193,39 @@ const styles = StyleSheet.create({
   error: { color: colors.danger, fontSize: 13, marginTop: spacing(3) },
   backToPassenger: { alignItems: "center", paddingVertical: spacing(4) },
   backToPassengerText: { color: colors.muted, fontSize: 14, fontWeight: "600" },
+  // The model field is a Pressable styled like an input, so center its text.
+  pickerValue: { fontSize: 16, color: colors.text, lineHeight: 48 },
+  pickerPlaceholder: { fontSize: 16, color: colors.muted, lineHeight: 48 },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "flex-end",
+  },
+  modalSheet: {
+    backgroundColor: colors.bg,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: spacing(5),
+    maxHeight: "70%",
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: colors.text,
+    marginBottom: spacing(3),
+  },
+  modelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: spacing(3),
+    paddingHorizontal: spacing(3),
+    borderRadius: radius.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modelRowActive: { backgroundColor: colors.surface },
+  modelName: { fontSize: 16, color: colors.text },
+  modelTier: { fontSize: 13, color: colors.muted },
+  modelEmpty: { fontSize: 14, color: colors.muted, textAlign: "center", padding: spacing(4) },
 });

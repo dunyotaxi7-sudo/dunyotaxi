@@ -1,5 +1,6 @@
 import { api } from "./client";
 import type {
+  CarModelOption,
   DocType,
   DriverBonus,
   DriverDocument,
@@ -24,6 +25,10 @@ export interface DriverRegisterInput {
 export const driverApi = {
   // 404 when the current user has no driver profile yet.
   me: () => api.get<DriverProfile>("/driver/me").then((r) => r.data),
+
+  /** Car-model catalog for the registration picker. */
+  carModels: () =>
+    api.get<CarModelOption[]>("/driver/car-models").then((r) => r.data),
 
   register: (input: DriverRegisterInput) =>
     api.post<DriverProfile>("/driver/register", input).then((r) => r.data),

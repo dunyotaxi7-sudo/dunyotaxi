@@ -189,6 +189,12 @@ export interface EstimateResponse {
   currency: string;
 }
 
+export interface CarModelOption {
+  id: number;
+  name: string;
+  car_type: string;
+}
+
 export interface RideDriverInfo {
   driver_id: string;
   full_name: string;

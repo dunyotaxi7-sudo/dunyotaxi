@@ -17,6 +17,13 @@ class DriverRegister(BaseModel):
     car_year: int | None = Field(default=None, ge=1950, le=2100)
 
 
+class CarModelOption(BaseModel):
+    """Catalog entry offered to a driver at registration."""
+    id: int
+    name: str
+    car_type: str
+
+
 class DriverPublic(ORMModel):
     id: uuid.UUID
     user_id: uuid.UUID

@@ -9,7 +9,7 @@ import redis.asyncio as redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Driver, DriverDocument, User
+from app.models import CarModel, Driver, DriverDocument, User
 from app.services import location
 
 # Shared document-file storage (used by the driver upload endpoint and the
@@ -48,12 +48,22 @@ async def register_driver(db: AsyncSession, user: User, payload) -> Driver:
     if existing is not None:
         raise DriverError("driver profile already exists")
 
+    # The tariff comes from the chosen catalog model; unknown/custom → econom.
+    car_class = "econom"
+    res = await db.execute(
+        select(CarModel).where(CarModel.name == payload.car_model)
+    )
+    model = res.scalar_one_or_none()
+    if model is not None and model.is_active:
+        car_class = model.car_type
+
     driver = Driver(
         user_id=user.id,
         car_model=payload.car_model,
         car_number=payload.car_number,
         car_color=payload.car_color,
         car_year=payload.car_year,
+        car_class=car_class,
         status="pending",
     )
     db.add(driver)

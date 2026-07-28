@@ -22,8 +22,9 @@ from pydantic import BaseModel
 
 from app.api.deps import get_current_driver, get_current_user, get_redis_dep
 from app.core.database import get_db
-from app.models import Driver, DriverCommission, DriverDocument, Ride, User
+from app.models import CarModel, Driver, DriverCommission, DriverDocument, Ride, User
 from app.schemas.driver import (
+    CarModelOption,
     DocumentPublic,
     DocumentUpload,
     DriverBonus,
@@ -47,6 +48,24 @@ router = APIRouter(prefix="/driver", tags=["driver"])
 UPLOAD_ROOT = Path("uploads")
 _ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".pdf"}
 _MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+@router.get("/car-models", response_model=list[CarModelOption])
+async def car_models(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Catalog of car models for the registration picker. Guarded by
+    get_current_user because a registering driver has no profile yet."""
+    res = await db.execute(
+        select(CarModel)
+        .where(CarModel.is_active.is_(True))
+        .order_by(CarModel.car_type, CarModel.name)
+    )
+    return [
+        CarModelOption(id=m.id, name=m.name, car_type=m.car_type)
+        for m in res.scalars()
+    ]
 
 
 @router.post("/register", response_model=DriverPublic, status_code=201)
