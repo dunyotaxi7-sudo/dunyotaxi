@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
+import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
 import * as Haptics from "expo-haptics";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -28,6 +29,8 @@ export function RideOfferModal({
   const router = useRouter();
   const [remaining, setRemaining] = useState(offer.timeout_s);
   const closedRef = useRef(false);
+  // Looping ringtone for the incoming order.
+  const ringtone = useAudioPlayer(require("../../../assets/sounds/order.wav"));
 
   const details = useQuery({
     queryKey: ["ride-offer", offer.ride_id],
@@ -35,11 +38,18 @@ export function RideOfferModal({
     retry: false,
   });
 
-  // Alert the driver on arrival.
+  // Alert the driver on arrival: looping ringtone (even on silent) + vibration.
   useEffect(() => {
+    void setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
+    ringtone.loop = true;
+    ringtone.volume = 1;
+    ringtone.play();
     Vibration.vibrate([0, 400, 250, 400], true);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    return () => Vibration.cancel();
+    return () => {
+      ringtone.pause();
+      Vibration.cancel();
+    };
   }, []);
 
   const accept = useMutation({
@@ -59,6 +69,7 @@ export function RideOfferModal({
   function finish() {
     if (closedRef.current) return;
     closedRef.current = true;
+    ringtone.pause();
     Vibration.cancel();
     onClose();
   }
