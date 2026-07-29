@@ -3,7 +3,7 @@
 //  Everything else uses the provider-agnostic <Map /> + types below, so the
 //  provider lives entirely in this folder.
 // ─────────────────────────────────────────────────────────────────────────
-import { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Yamap, {
   Animation,
@@ -57,14 +57,19 @@ const PIN_COLOR: Record<MarkerKind, string> = {
   dropoff: "#dc2626",
 };
 
-// MapKit needs its key before the first map renders, so init once at import
-// time. The map labels have no Uzbek locale (same as the Geocoder), so pin the
-// map language to Russian for consistency with addresses.
+// MapKit's native SDK must be initialized before ANY MapKit object is created —
+// creating a Marker or the service-area Polygon first throws
+// UnsatisfiedLinkError (the native library isn't loaded yet). So init once and
+// gate the map render on that promise. Labels have no Uzbek locale (same as the
+// Geocoder), so pin the map language to Russian for consistency with addresses.
 const MAPKIT_KEY = process.env.EXPO_PUBLIC_YANDEX_MAPKIT_KEY ?? "";
-if (MAPKIT_KEY) {
-  void YamapInstance.init(MAPKIT_KEY);
-  void YamapInstance.setLocale("ru_RU");
-}
+const mapKitReady: Promise<void> = MAPKIT_KEY
+  ? YamapInstance.init(MAPKIT_KEY)
+      .then(() => {
+        void YamapInstance.setLocale("ru_RU");
+      })
+      .catch(() => {})
+  : Promise.resolve();
 
 const ANIM_MS = 0.4; // Yandex durations are in seconds
 
@@ -83,6 +88,17 @@ export const Map = forwardRef<MapHandle, MapProps>(function Map(
   ref,
 ) {
   const mapRef = useRef<YamapRef>(null);
+  // Don't mount the native map until MapKit finished initializing.
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void mapKitReady.then(() => {
+      if (alive) setReady(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useImperativeHandle(ref, () => ({
     animateTo: (center, zoom = DEFAULT_ZOOM) => {
@@ -104,6 +120,12 @@ export const Map = forwardRef<MapHandle, MapProps>(function Map(
   // No MapKit key configured → safe placeholder; the ride flow stays usable.
   if (!MAPKIT_KEY) {
     return <MapPlaceholder markers={markers} style={style} />;
+  }
+
+  // Blank map area until MapKit's native SDK is ready (avoids the
+  // UnsatisfiedLinkError from creating map objects too early).
+  if (!ready) {
+    return <View style={[styles.map, style]} />;
   }
 
   return (
