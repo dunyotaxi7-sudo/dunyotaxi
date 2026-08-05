@@ -17,7 +17,7 @@
           "location"
         ]
       },
-      "bundleIdentifier": "uz.dunyotaxi.app"
+      "bundleIdentifier": "uz.dunyo.taxi.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -34,7 +34,7 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
       ],
-      "package": "uz.dunyotaxi.app"
+      "package": "uz.dunyo.taxi.app"
     },
     "web": {
       "output": "static",

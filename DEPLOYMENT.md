@@ -131,7 +131,7 @@ curl -i -N -H "Connection: Upgrade" -H "Upgrade: websocket" \
 
 ## 7. Mobile → EAS
 
-Identity is already set (`app.json`): **Dunyo Taxi**, bundle **`uz.dunyotaxi.app`**.
+Identity is already set (`app.json`): **Dunyo Taxi**, bundle **`uz.dunyo.taxi.app`**.
 ⚠️ The bundle id can never change once published.
 
 ```bash
