@@ -63,11 +63,13 @@ const PIN_COLOR: Record<MarkerKind, string> = {
 // gate the map render on that promise. Labels have no Uzbek locale (same as the
 // Geocoder), so pin the map language to Russian for consistency with addresses.
 const MAPKIT_KEY = process.env.EXPO_PUBLIC_YANDEX_MAPKIT_KEY ?? "";
+// setLocale() must be called BEFORE initialize() — the native SDK throws
+// otherwise. Set the locale first (labels have no Uzbek locale, same as the
+// Geocoder, so pin to Russian), then init, gating the map render on the result.
 const mapKitReady: Promise<void> = MAPKIT_KEY
-  ? YamapInstance.init(MAPKIT_KEY)
-      .then(() => {
-        void YamapInstance.setLocale("ru_RU");
-      })
+  ? Promise.resolve(YamapInstance.setLocale("ru_RU"))
+      .catch(() => {})
+      .then(() => YamapInstance.init(MAPKIT_KEY))
       .catch(() => {})
   : Promise.resolve();
 
