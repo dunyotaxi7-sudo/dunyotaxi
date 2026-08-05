@@ -142,7 +142,10 @@ export default function PickLocationScreen() {
 
   return (
     <View style={styles.root}>
-      <Stack.Screen options={{ headerShown: false, presentation: "modal" }} />
+      {/* A full-screen push (not a modal): a modal keeps the home map mounted
+          behind it, so two Yandex MapKit views run at once and this one renders
+          blank. Pushing detaches the home map, leaving a single live map. */}
+      <Stack.Screen options={{ headerShown: false }} />
 
       <Map
         ref={mapRef}

@@ -117,7 +117,11 @@ async function yandexReverse(coords: Coords): Promise<string | null> {
     const url =
       `${GEOCODE_URL}/?apikey=${GEOCODER_KEY}` +
       `&geocode=${coords.lng},${coords.lat}` + // lon,lat
-      `&format=json&lang=${GEOCODER_LANG}&kind=house&results=1`;
+      // No `kind=house`: rural points (e.g. Jondor District) have no house-level
+      // match, which would return empty and fall back to the device geocoder
+      // (phone-locale = English). Letting Yandex pick the best kind keeps the
+      // address in ru_RU (the Geocoder has no Uzbek locale).
+      `&format=json&lang=${GEOCODER_LANG}&results=1`;
     const geoObject = firstGeoObject(await fetchJson(url));
     if (!geoObject) return null;
     // `name` is the most specific line (street + house); `description` is the
