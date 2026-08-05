@@ -5,11 +5,12 @@
 //
 // Everything else still lives in app.json; this file only layers the key on top.
 const { existsSync } = require("fs");
+const withReleaseSigning = require("./plugins/withReleaseSigning");
 
 const KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 const GOOGLE_SERVICES = "./google-services.json";
 
-export default ({ config }) => ({
+export default ({ config }) => withReleaseSigning({
   ...config,
   // Yandex MapKit (Lite/free tier) for the map canvas itself. Spike on the
   // yandex-mapkit branch — verifying it builds on RN 0.86 / New Arch before

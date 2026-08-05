@@ -56,3 +56,9 @@ yarn-error.log*
 .idea/
 .vscode/
 .vercel
+
+# ── Android release signing — NEVER commit (loses control of the app if leaked)
+mobile/credentials/
+*.keystore
+*.jks
+keystore.properties
