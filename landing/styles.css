@@ -42,8 +42,9 @@ header {
 .nav-links a:hover { color: var(--text); }
 .nav-cta {
   background: var(--yellow); color: #000 !important; font-weight: 700;
-  padding: 9px 16px; border-radius: 999px; font-size: 14px;
+  padding: 9px 16px; border-radius: 7px; font-size: 14px;
 }
+.nav-cta:hover { color: #000 !important; }
 @media (max-width: 720px) { .nav-links a:not(.nav-cta) { display: none; } }
 
 /* ── Hero ───────────────────────────────────────── */
@@ -65,11 +66,12 @@ h1 .accent { color: var(--yellow); }
 .cta-row { display: flex; gap: 13px; flex-wrap: wrap; }
 .btn {
   display: inline-flex; align-items: center; gap: 9px; font-weight: 700; font-size: 15px;
-  padding: 14px 22px; border-radius: 13px; transition: transform .12s, background .15s; cursor: pointer;
+  padding: 14px 24px; border-radius: 7px; transition: transform .12s, background .15s, border-color .15s; cursor: pointer;
 }
+.btn svg { width: 18px; height: 18px; }
 .btn-primary { background: var(--yellow); color: #000; }
 .btn-primary:hover { transform: translateY(-2px); background: var(--yellow-deep); }
-.btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+.btn-ghost { background: transparent; color: var(--text); border: 1px solid #333; }
 .btn-ghost:hover { border-color: var(--yellow); color: var(--yellow); }
 
 /* Phone mockup */
@@ -105,9 +107,11 @@ section { padding: 64px 0; }
 }
 .card:hover { border-color: rgba(253,216,5,.4); transform: translateY(-3px); }
 .card .ico {
-  width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; font-size: 22px;
-  background: rgba(253,216,5,.1); margin-bottom: 16px;
+  width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center;
+  background: rgba(253,216,5,.06); border: 1px solid rgba(253,216,5,.22);
+  color: var(--yellow); margin-bottom: 18px;
 }
+.card .ico svg { width: 23px; height: 23px; display: block; }
 .card h3 { margin: 0 0 8px; font-size: 18px; font-weight: 700; }
 .card p { margin: 0; color: var(--muted); font-size: 15px; }
 
