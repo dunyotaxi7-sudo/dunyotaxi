@@ -30,6 +30,19 @@ export const tokenStorage = {
   },
 };
 
+// Whether the driver has seen and accepted the background-location prominent
+// disclosure (Google Play User Data policy requires explicit consent BEFORE the
+// background permission is ever requested).
+const BG_CONSENT = "bt_bg_location_consent";
+export const bgLocationConsent = {
+  async get(): Promise<boolean> {
+    return (await SecureStore.getItemAsync(BG_CONSENT)) === "1";
+  },
+  async set(value: boolean): Promise<void> {
+    await SecureStore.setItemAsync(BG_CONSENT, value ? "1" : "0");
+  },
+};
+
 // Which app (passenger/driver) the user last used — one account can do both.
 export const modeStorage = {
   async get(): Promise<string | null> {

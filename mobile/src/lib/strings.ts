@@ -246,6 +246,19 @@ export const t = {
         "Joylashuvga ruxsat berilmagan. Sozlamalardan ruxsatni yoqing.",
       openSettings: "Sozlamalarni ochish",
       statusError: "Holatni o'zgartirib bo'lmadi.",
+      // Prominent disclosure shown before the background-location permission is
+      // ever requested (Google Play User Data policy).
+      disclosure: {
+        title: "Joylashuvdan fonda foydalanish",
+        body:
+          "Dunyo Taxi siz “Onlayn” bo'lganingizda joylashuvingizni to'playdi — ilova fonda ishlayotganda yoki yopiq bo'lsa ham. Bu yo'lovchilarga siz yaqinlashayotganingizni real vaqtda ko'rsatish va yangi buyurtmalarni eng yaqin haydovchiga yo'naltirish uchun kerak.",
+        body2:
+          "Joylashuv faqat siz onlayn bo'lganingizda uzatiladi, “Oflayn” qilganingizda darhol to'xtaydi va onlayn vaqtida doimiy bildirishnoma ko'rsatiladi.",
+        consent:
+          "“Roziman”ni bosish orqali siz joylashuvingizdan yuqoridagi maqsadda, jumladan fonda foydalanishga rozilik bildirasiz.",
+        accept: "Roziman",
+        decline: "Rad etish",
+      },
     },
     offer: {
       title: "Yangi buyurtma",

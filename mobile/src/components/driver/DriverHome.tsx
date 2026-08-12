@@ -26,7 +26,9 @@ import {
   stopBackgroundLocation,
 } from "@/lib/backgroundLocation";
 import { registerForPush } from "@/lib/push";
+import { bgLocationConsent } from "@/lib/storage";
 import { RideOfferModal } from "@/components/driver/RideOfferModal";
+import { BackgroundLocationDisclosure } from "@/components/driver/BackgroundLocationDisclosure";
 import { formatSom } from "@/lib/format";
 import { t } from "@/lib/strings";
 import type { DriverProfile } from "@/lib/types";
@@ -69,6 +71,13 @@ export function DriverHome({ driver }: { driver: DriverProfile }) {
   const mapRef = useRef<MapHandle>(null);
   const location = useCurrentLocation();
   const [online, setOnline] = useState(driver.is_online);
+  // Background-location prominent disclosure (Google Play policy): consent must
+  // be given before the permission is ever requested. null = still loading.
+  const [bgConsent, setBgConsent] = useState<boolean | null>(null);
+  const [showDisclosure, setShowDisclosure] = useState(false);
+  useEffect(() => {
+    void bgLocationConsent.get().then(setBgConsent);
+  }, []);
 
   const center = location.coords ?? BUKHARA_CENTER;
 
@@ -89,14 +98,17 @@ export function DriverHome({ driver }: { driver: DriverProfile }) {
     void registerForPush();
   }, []);
 
-  // Start/stop background GPS streaming with the online state.
+  // Start/stop background GPS streaming with the online state. Never start
+  // without prior consent to the disclosure — even if the server says the
+  // driver was already online — so the background permission is never requested
+  // before the disclosure has been shown and accepted.
   useEffect(() => {
-    if (online) void startBackgroundLocation();
+    if (online && bgConsent === true) void startBackgroundLocation();
     else void stopBackgroundLocation();
     return () => {
       void stopBackgroundLocation();
     };
-  }, [online]);
+  }, [online, bgConsent]);
 
   // Recover a missed offer when the app returns to the foreground.
   useEffect(() => {
@@ -166,16 +178,37 @@ export function DriverHome({ driver }: { driver: DriverProfile }) {
     onError: () => Alert.alert(t.driver.home.statusError),
   });
 
+  // The actual go-online step: request permissions + start streaming, then flip
+  // the server status. Only reached AFTER the disclosure has been accepted.
+  async function goOnline() {
+    const res = await startBackgroundLocation();
+    if (!res.ok) {
+      promptForLocation(res.reason);
+      return;
+    }
+    toggle.mutate(true);
+  }
+
   async function onToggle() {
     const next = !online;
-    if (next) {
-      const res = await startBackgroundLocation();
-      if (!res.ok) {
-        promptForLocation(res.reason);
-        return;
-      }
+    if (!next) {
+      toggle.mutate(false);
+      return;
     }
-    toggle.mutate(next);
+    // Going online: show the prominent disclosure first (once), before any
+    // location permission is requested.
+    if (bgConsent !== true) {
+      setShowDisclosure(true);
+      return;
+    }
+    await goOnline();
+  }
+
+  async function acceptDisclosure() {
+    await bgLocationConsent.set(true);
+    setBgConsent(true);
+    setShowDisclosure(false);
+    await goOnline();
   }
 
   return (
@@ -268,6 +301,13 @@ export function DriverHome({ driver }: { driver: DriverProfile }) {
 
       {/* Incoming ride offer */}
       {offer ? <RideOfferModal offer={offer} onClose={clearOffer} /> : null}
+
+      {/* Prominent disclosure — shown before background location is requested */}
+      <BackgroundLocationDisclosure
+        visible={showDisclosure}
+        onAccept={acceptDisclosure}
+        onDecline={() => setShowDisclosure(false)}
+      />
     </View>
   );
 }
