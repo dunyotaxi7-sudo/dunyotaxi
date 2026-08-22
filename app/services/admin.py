@@ -199,7 +199,11 @@ async def cancel_ride(
     if ride.status in ("completed", "cancelled"):
         raise ValueError("ride already finished")
     ride.status = "cancelled"
-    ride.cancelled_by = "admin"
+    # The DB CHECK constraint only allows 'passenger' | 'driver' | 'system';
+    # an admin/panel cancellation is recorded as 'system' (the reason text below
+    # notes it was the administrator). Using 'admin' here violates the check and
+    # rolls back the whole transaction → the cancel silently 500s.
+    ride.cancelled_by = "system"
     ride.cancel_reason = reason or "Administrator tomonidan bekor qilindi"
     await log_action(
         db, admin_id, "ride_cancel", entity_type="ride",
