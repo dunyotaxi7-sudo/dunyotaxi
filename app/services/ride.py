@@ -307,14 +307,23 @@ async def _dispatch_loop(
                     # The order's tier plus every higher tier (hierarchy): a
                     # Komfort driver also serves Econom orders, etc.
                     eligible = await pricing.eligible_car_classes(db, ride.car_type)
+                    # Skip drivers already being offered another order or already
+                    # on a trip, so two simultaneous orders don't both land on the
+                    # same nearest driver (who can only see/accept one at a time).
+                    busy = set(_current_offer.values()) | set(_active_ride_by_driver.keys())
                     candidates = await matching.find_nearest_drivers(
-                        db, r, lat, lng, exclude=rejected, limit=1,
+                        db, r, lat, lng, exclude=rejected | busy, limit=1,
                         car_classes=eligible,
                     )
                     if not candidates:
                         break
                     driver_id, distance_m = candidates[0].driver_id, candidates[0].distance_m
 
+            # Atomic claim (no await before setting _current_offer): if another
+            # order grabbed this driver a moment ago, skip and try the next one.
+            if driver_id in _current_offer.values() or driver_id in _active_ride_by_driver:
+                rejected.add(driver_id)
+                continue
             _current_offer[ride_id] = driver_id
             ev = offer_broker.open(ride_id)  # noqa: F841 — opens the slot
             await _offer_to_driver(driver_id, ride_id, distance_m)

@@ -31,6 +31,20 @@ export function RideOfferModal({
   const closedRef = useRef(false);
   // Looping ringtone for the incoming order.
   const ringtone = useAudioPlayer(require("../../../assets/sounds/order.wav"));
+  // expo-audio throws if the player is touched after it's released (the double
+  // pause from finish() + the unmount cleanup crashed the whole app — and the
+  // crash killed the background-location task, dropping the driver from
+  // dispatch until re-login). Stop exactly once, and never let audio throw.
+  const audioStopped = useRef(false);
+  function stopRingtone() {
+    if (audioStopped.current) return;
+    audioStopped.current = true;
+    try {
+      ringtone.pause();
+    } catch {
+      // player may already be released — ignore
+    }
+  }
 
   const details = useQuery({
     queryKey: ["ride-offer", offer.ride_id],
@@ -39,15 +53,22 @@ export function RideOfferModal({
   });
 
   // Alert the driver on arrival: looping ringtone (even on silent) + vibration.
+  // Audio is best-effort — guarded so a player error can never crash the offer.
   useEffect(() => {
     void setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
-    ringtone.loop = true;
-    ringtone.volume = 1;
-    ringtone.play();
+    try {
+      ringtone.loop = true;
+      ringtone.volume = 1;
+      ringtone.play();
+    } catch {
+      // ignore — the offer must work even if the ringtone can't play
+    }
     Vibration.vibrate([0, 400, 250, 400], true);
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(
+      () => {},
+    );
     return () => {
-      ringtone.pause();
+      stopRingtone();
       Vibration.cancel();
     };
   }, []);
@@ -69,7 +90,7 @@ export function RideOfferModal({
   function finish() {
     if (closedRef.current) return;
     closedRef.current = true;
-    ringtone.pause();
+    stopRingtone();
     Vibration.cancel();
     onClose();
   }
