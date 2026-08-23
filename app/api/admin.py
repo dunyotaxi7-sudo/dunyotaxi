@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 import redis.asyncio as redis
 from fastapi import (
@@ -15,7 +15,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from sqlalchemy import select
+from sqlalchemy import select, update as sa_update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -662,6 +662,21 @@ async def create_commission(
     db: AsyncSession = Depends(get_db),
 ):
     data = payload.model_dump(exclude_none=True)
+    # Only one config should be active per scope (global, or a given driver) at a
+    # time. Close the previously-open config for this scope so they stop piling
+    # up — otherwise the trigger has many overlapping rows to choose from and a
+    # new rate never reliably takes effect.
+    new_from = data.get("valid_from") or date.today()
+    scope = (
+        CommissionConfig.driver_id.is_(None)
+        if data.get("driver_id") is None
+        else CommissionConfig.driver_id == data["driver_id"]
+    )
+    await db.execute(
+        sa_update(CommissionConfig)
+        .where(scope, CommissionConfig.valid_until.is_(None))
+        .values(valid_until=new_from - timedelta(days=1))
+    )
     cfg = CommissionConfig(**data, created_by=admin.id)
     db.add(cfg)
     await db.flush()

@@ -84,7 +84,8 @@ class CommissionConfig(Base):
         PG_UUID(as_uuid=True), ForeignKey("drivers.id", ondelete="CASCADE")
     )
     # "percent" → commission_pct of the fare; "fixed" → a flat commission_fixed
-    # so'm per completed trip regardless of the fare.
+    # so'm per completed trip regardless of the fare; "combined" → the flat
+    # commission_fixed base PLUS commission_pct of the fare (capped at the fare).
     commission_type: Mapped[str] = mapped_column(
         String(10), nullable=False, server_default="percent", default="percent"
     )

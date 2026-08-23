@@ -59,7 +59,8 @@ class PricingConfigPublic(ORMModel):
 class CommissionConfigCreate(BaseModel):
     driver_id: uuid.UUID | None = None  # None = global
     # "percent": commission_pct of the fare. "fixed": commission_fixed so'm/trip.
-    commission_type: Literal["percent", "fixed"] = "percent"
+    # "combined": a flat commission_fixed base PLUS commission_pct of the fare.
+    commission_type: Literal["percent", "fixed", "combined"] = "percent"
     commission_pct: float = Field(0, ge=0, le=100)
     commission_fixed: int = Field(0, ge=0)
     valid_from: date | None = None
@@ -71,6 +72,8 @@ class CommissionConfigCreate(BaseModel):
             raise ValueError("commission_fixed must be > 0 for a fixed commission")
         if self.commission_type == "percent" and not (0 < self.commission_pct <= 100):
             raise ValueError("commission_pct must be between 0 and 100 for a percent commission")
+        if self.commission_type == "combined" and self.commission_fixed <= 0 and self.commission_pct <= 0:
+            raise ValueError("combined commission needs a fixed amount and/or a percent")
         return self
 
 

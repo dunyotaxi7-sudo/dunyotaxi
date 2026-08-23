@@ -7,6 +7,8 @@ import { apiError } from "@/lib/axios";
 import { formatDate } from "@/lib/format";
 import { Badge, ErrorBlock, LoadingBlock } from "@/components/ui";
 
+type CommType = "percent" | "fixed" | "combined";
+
 export default function CommissionPage() {
   const qc = useQueryClient();
   const configs = useQuery({ queryKey: ["commission"], queryFn: () => commissionApi.list() });
@@ -19,11 +21,11 @@ export default function CommissionPage() {
     return m;
   }, [drivers.data]);
 
-  const [globalType, setGlobalType] = useState<"percent" | "fixed">("percent");
-  const [globalPct, setGlobalPct] = useState("15");
+  const [globalType, setGlobalType] = useState<CommType>("combined");
+  const [globalPct, setGlobalPct] = useState("0.5");
   const [globalFixed, setGlobalFixed] = useState("1250");
   const [ovrDriver, setOvrDriver] = useState("");
-  const [ovrType, setOvrType] = useState<"percent" | "fixed">("percent");
+  const [ovrType, setOvrType] = useState<CommType>("percent");
   const [ovrPct, setOvrPct] = useState("10");
   const [ovrFixed, setOvrFixed] = useState("1250");
   const [ovrFrom, setOvrFrom] = useState("");
@@ -31,10 +33,16 @@ export default function CommissionPage() {
   const [msg, setMsg] = useState<string | null>(null);
 
   // Build the create payload for the chosen commission type.
-  function commissionBody(type: "percent" | "fixed", pct: string, fixed: string) {
-    return type === "fixed"
-      ? { commission_type: "fixed" as const, commission_fixed: Number(fixed) }
-      : { commission_type: "percent" as const, commission_pct: Number(pct) };
+  function commissionBody(type: CommType, pct: string, fixed: string) {
+    if (type === "fixed")
+      return { commission_type: "fixed" as const, commission_fixed: Number(fixed) };
+    if (type === "combined")
+      return {
+        commission_type: "combined" as const,
+        commission_pct: Number(pct),
+        commission_fixed: Number(fixed),
+      };
+    return { commission_type: "percent" as const, commission_pct: Number(pct) };
   }
 
   const create = useMutation({
@@ -57,26 +65,16 @@ export default function CommissionPage() {
             <div>
               <label className="label">Komissiya turi</label>
               <select
-                className="input w-40"
+                className="input w-44"
                 value={globalType}
-                onChange={(e) => setGlobalType(e.target.value as "percent" | "fixed")}
+                onChange={(e) => setGlobalType(e.target.value as CommType)}
               >
                 <option value="percent">Foiz (%)</option>
                 <option value="fixed">Belgilangan (so'm)</option>
+                <option value="combined">Aralash (so'm + %)</option>
               </select>
             </div>
-            {globalType === "percent" ? (
-              <div>
-                <label className="label">Foiz</label>
-                <input
-                  className="input w-32"
-                  type="number"
-                  step="0.5"
-                  value={globalPct}
-                  onChange={(e) => setGlobalPct(e.target.value)}
-                />
-              </div>
-            ) : (
+            {(globalType === "fixed" || globalType === "combined") && (
               <div>
                 <label className="label">Har sayohat uchun (so'm)</label>
                 <input
@@ -85,6 +83,18 @@ export default function CommissionPage() {
                   step="50"
                   value={globalFixed}
                   onChange={(e) => setGlobalFixed(e.target.value)}
+                />
+              </div>
+            )}
+            {(globalType === "percent" || globalType === "combined") && (
+              <div>
+                <label className="label">Foiz</label>
+                <input
+                  className="input w-32"
+                  type="number"
+                  step="0.5"
+                  value={globalPct}
+                  onChange={(e) => setGlobalPct(e.target.value)}
                 />
               </div>
             )}
@@ -118,21 +128,23 @@ export default function CommissionPage() {
               <select
                 className="input"
                 value={ovrType}
-                onChange={(e) => setOvrType(e.target.value as "percent" | "fixed")}
+                onChange={(e) => setOvrType(e.target.value as CommType)}
               >
                 <option value="percent">Foiz (%)</option>
                 <option value="fixed">Belgilangan (so'm)</option>
+                <option value="combined">Aralash (so'm + %)</option>
               </select>
             </div>
-            {ovrType === "percent" ? (
-              <div>
-                <label className="label">Foiz</label>
-                <input className="input" type="number" step="0.5" value={ovrPct} onChange={(e) => setOvrPct(e.target.value)} />
-              </div>
-            ) : (
+            {(ovrType === "fixed" || ovrType === "combined") && (
               <div>
                 <label className="label">Har sayohat uchun (so'm)</label>
                 <input className="input" type="number" step="50" value={ovrFixed} onChange={(e) => setOvrFixed(e.target.value)} />
+              </div>
+            )}
+            {(ovrType === "percent" || ovrType === "combined") && (
+              <div>
+                <label className="label">Foiz</label>
+                <input className="input" type="number" step="0.5" value={ovrPct} onChange={(e) => setOvrPct(e.target.value)} />
               </div>
             )}
             <div>
@@ -196,6 +208,8 @@ export default function CommissionPage() {
                       <td className="px-4 py-3 font-medium">
                         {c.commission_type === "fixed"
                           ? `${c.commission_fixed.toLocaleString("ru-RU")} so'm / sayohat`
+                          : c.commission_type === "combined"
+                          ? `${c.commission_fixed.toLocaleString("ru-RU")} so'm + ${Number(c.commission_pct).toFixed(2)}%`
                           : `${Number(c.commission_pct).toFixed(2)}%`}
                       </td>
                       <td className="px-4 py-3 text-muted">{formatDate(c.valid_from)}</td>

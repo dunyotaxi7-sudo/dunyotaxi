@@ -204,7 +204,7 @@ export interface PricingConfigUpdate {
   is_active?: boolean;
 }
 
-export type CommissionType = "percent" | "fixed";
+export type CommissionType = "percent" | "fixed" | "combined";
 
 export interface CommissionConfig {
   id: number;
