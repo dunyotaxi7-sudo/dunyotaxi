@@ -84,47 +84,69 @@ admin_ws = Broadcaster()
 
 
 class OfferBroker:
-    """Coordinates a single outstanding ride offer per driver.
+    """Coordinates a broadcast ride offer.
 
-    The dispatcher pushes an offer and awaits :meth:`wait`; the driver's
-    accept/reject HTTP call resolves it via :meth:`resolve`.
+    An order is offered to several drivers at once. The dispatcher opens the
+    offer with the set of offered drivers and awaits :meth:`wait`; each driver's
+    accept/reject HTTP call feeds :meth:`accept` / :meth:`reject`. The FIRST
+    accept wins (later accepts get False → the driver sees "already taken"), and
+    the offer also resolves — with no winner — once every offered driver has
+    rejected, so the dispatcher can move on without waiting out the timeout.
     """
 
     def __init__(self) -> None:
         self._events: dict[str, asyncio.Event] = {}
-        self._results: dict[str, bool] = {}
+        self._winner: dict[str, str | None] = {}
+        self._pending: dict[str, set[str]] = {}
 
-    def open(self, ride_id: str) -> asyncio.Event:
-        ev = asyncio.Event()
-        self._events[ride_id] = ev
-        self._results.pop(ride_id, None)
-        return ev
+    def open(self, ride_id: str, driver_ids: set[str]) -> None:
+        self._events[ride_id] = asyncio.Event()
+        self._winner.pop(ride_id, None)
+        self._pending[ride_id] = set(driver_ids)
 
-    def resolve(self, ride_id: str, accepted: bool) -> bool:
-        """Record a driver's decision. Returns False if no offer is pending."""
+    def accept(self, ride_id: str, driver_id: str) -> bool:
+        """First accept wins. Returns False if the offer is already resolved
+        (someone accepted first, or it timed out / was cancelled)."""
         ev = self._events.get(ride_id)
-        if ev is None:
+        if ev is None or ev.is_set():
             return False
-        self._results[ride_id] = accepted
+        self._winner[ride_id] = driver_id
         ev.set()
         return True
 
-    async def wait(self, ride_id: str, timeout: float) -> bool | None:
-        """Await a decision. Returns True/False, or None on timeout."""
+    def reject(self, ride_id: str, driver_id: str) -> bool:
+        """Record a reject; if every offered driver has now rejected, resolve
+        with no winner. Returns False if the offer is already resolved."""
+        ev = self._events.get(ride_id)
+        if ev is None or ev.is_set():
+            return False
+        pending = self._pending.get(ride_id)
+        if pending is not None:
+            pending.discard(driver_id)
+            if not pending:
+                self._winner[ride_id] = None
+                ev.set()
+        return True
+
+    async def wait(self, ride_id: str, timeout: float) -> str | None:
+        """Await the outcome. Returns the winning driver id, or None on timeout
+        / all-rejected."""
         ev = self._events.get(ride_id)
         if ev is None:
             return None
         try:
             await asyncio.wait_for(ev.wait(), timeout=timeout)
         except asyncio.TimeoutError:
-            return None
+            pass
         finally:
             self._events.pop(ride_id, None)
-        return self._results.pop(ride_id, None)
+            self._pending.pop(ride_id, None)
+        return self._winner.pop(ride_id, None)
 
     def cancel(self, ride_id: str) -> None:
         self._events.pop(ride_id, None)
-        self._results.pop(ride_id, None)
+        self._winner.pop(ride_id, None)
+        self._pending.pop(ride_id, None)
 
 
 offer_broker = OfferBroker()

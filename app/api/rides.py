@@ -185,9 +185,9 @@ async def get_ride_offer(
     driver: Driver = Depends(get_current_driver),
     db: AsyncSession = Depends(get_db),
 ):
-    """Details a driver needs to decide on an offer. Only visible to the driver
+    """Details a driver needs to decide on an offer. Only visible to a driver
     the ride is currently being offered to."""
-    if ride_service.offered_driver(str(ride_id)) != str(driver.id):
+    if str(driver.id) not in ride_service.offered_drivers(str(ride_id)):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no active offer for you")
     ride = await db.get(Ride, ride_id)
     if ride is None:

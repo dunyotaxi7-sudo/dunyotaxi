@@ -57,6 +57,16 @@ export function useDriverSocket(enabled: boolean) {
       ws.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data as string);
+          // Someone else accepted (or the ride was cancelled) — this order is
+          // broadcast to several drivers, so close our card when it's taken.
+          if (
+            data?.type === "offer_taken" &&
+            offerRef.current?.ride_id === data.ride_id
+          ) {
+            offerRef.current = null;
+            setOffer(null);
+            return;
+          }
           if (data?.type === "ride_offer" && !offerRef.current) {
             const next: RideOffer = {
               ride_id: data.ride_id,

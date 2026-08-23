@@ -41,8 +41,10 @@ TRANSITIONS: dict[str, set[str]] = {
     "cancelled": set(),
 }
 
-# Which driver is currently being offered each ride (ride_id -> driver_id str).
-_current_offer: dict[str, str] = {}
+# Which drivers a ride is currently being broadcast to (ride_id -> set of
+# driver_id strings). The offer goes to all of them at once; the first to accept
+# wins and the rest are revoked.
+_current_offer: dict[str, set[str]] = {}
 
 # Active ride per driver, so the driver-location WS can relay live position to
 # the right passenger: driver_id -> (ride_id, passenger_user_id).
@@ -67,7 +69,7 @@ def pending_offer_for_driver(driver_id: str) -> str | None:
     """The ride_id currently being offered to this driver, if any. Lets a
     backgrounded driver app recover an offer it missed on the socket."""
     for ride_id, offered in _current_offer.items():
-        if offered == driver_id:
+        if driver_id in offered:
             return ride_id
     return None
 
@@ -286,12 +288,14 @@ async def _dispatch_loop(
     prefer: str | None = None,
     exclude: set[str] | None = None,
 ) -> None:
-    """Offer the ride to candidate drivers one at a time until one accepts,
-    candidates are exhausted, or the ride leaves 'searching'."""
+    """Broadcast the ride to every eligible driver within the broadcast radius
+    at once; the first to accept wins and the rest are revoked. Repeats with a
+    fresh set (excluding those who already declined) until someone accepts, no
+    eligible drivers remain, or the ride leaves 'searching'."""
     r = get_redis()
     rejected: set[str] = set(exclude or ())
     timeout = float(settings.driver_accept_timeout_seconds)
-    first = prefer  # offer this driver before falling back to nearest search
+    first = prefer  # offer this driver alone first (admin "offer" order)
 
     try:
         while True:
@@ -301,41 +305,59 @@ async def _dispatch_loop(
                     return  # cancelled or already handled
 
                 if first and first not in rejected:
-                    driver_id, distance_m = first, 0.0
+                    targets = [(first, 0.0)]
                     first = None
                 else:
                     # The order's tier plus every higher tier (hierarchy): a
                     # Komfort driver also serves Econom orders, etc.
                     eligible = await pricing.eligible_car_classes(db, ride.car_type)
-                    # Skip drivers already being offered another order or already
-                    # on a trip, so two simultaneous orders don't both land on the
-                    # same nearest driver (who can only see/accept one at a time).
-                    busy = set(_current_offer.values()) | set(_active_ride_by_driver.keys())
+                    # Skip drivers already being offered another order or on a
+                    # trip. Offer up to broadcast_max_drivers within the radius,
+                    # ranked nearest-first.
+                    busy = (
+                        set().union(*_current_offer.values())
+                        if _current_offer else set()
+                    ) | set(_active_ride_by_driver.keys())
                     candidates = await matching.find_nearest_drivers(
-                        db, r, lat, lng, exclude=rejected | busy, limit=1,
+                        db, r, lat, lng, exclude=rejected | busy,
+                        radii=[settings.broadcast_radius_meters],
+                        limit=settings.broadcast_max_drivers,
                         car_classes=eligible,
                     )
                     if not candidates:
                         break
-                    driver_id, distance_m = candidates[0].driver_id, candidates[0].distance_m
+                    targets = [(c.driver_id, c.distance_m) for c in candidates]
 
-            # Atomic claim (no await before setting _current_offer): if another
-            # order grabbed this driver a moment ago, skip and try the next one.
-            if driver_id in _current_offer.values() or driver_id in _active_ride_by_driver:
-                rejected.add(driver_id)
+            # Atomic claim (no await before setting _current_offer): drop any
+            # driver another order grabbed since selection.
+            claimed = [
+                (d, dm) for d, dm in targets
+                if d not in _active_ride_by_driver
+                and not any(d in s for s in _current_offer.values())
+            ]
+            if not claimed:
+                rejected.update(d for d, _ in targets)
                 continue
-            _current_offer[ride_id] = driver_id
-            ev = offer_broker.open(ride_id)  # noqa: F841 — opens the slot
-            await _offer_to_driver(driver_id, ride_id, distance_m)
+            claimed_ids = {d for d, _ in claimed}
+            _current_offer[ride_id] = claimed_ids
+            offer_broker.open(ride_id, claimed_ids)
 
-            decision = await offer_broker.wait(ride_id, timeout)
-            _current_offer.pop(ride_id, None)
+            # Broadcast to all claimed drivers at once.
+            for d, dm in claimed:
+                await _offer_to_driver(d, ride_id, dm)
 
-            if decision is True:
-                await _assign_driver(ride_id, driver_id)
+            winner = await offer_broker.wait(ride_id, timeout)
+            offered = _current_offer.pop(ride_id, set())
+
+            if winner:
+                await _assign_driver(ride_id, winner)
+                # Close the offer card for everyone who didn't win.
+                await _revoke_offers(offered - {winner}, ride_id)
                 return
-            # Rejected or timed out → try the next driver.
-            rejected.add(driver_id)
+            # Nobody accepted (all declined or timed out): close their cards,
+            # exclude them, and look again — a new driver may have come online.
+            await _revoke_offers(offered, ride_id)
+            rejected |= offered
 
         await _no_driver_found(ride_id)
     except Exception:  # noqa: BLE001
@@ -377,6 +399,17 @@ async def _offer_to_driver(driver_id: str, ride_id: str, distance_m: float) -> N
         )
     except Exception:  # noqa: BLE001
         log.exception("offer push failed for driver %s", driver_id)
+
+
+async def _revoke_offers(driver_ids: set[str], ride_id: str) -> None:
+    """Tell drivers that a ride they were offered is no longer available (someone
+    else took it, or it was cancelled) so their offer card closes immediately."""
+    for did in driver_ids:
+        user_id = await _driver_user_id(did)
+        if user_id:
+            await driver_ws.send(
+                user_id, {"type": "offer_taken", "ride_id": ride_id}
+            )
 
 
 async def _assign_driver(ride_id: str, driver_id: str) -> None:
@@ -482,21 +515,23 @@ async def decline_assigned(ride_id: str, driver_id: str) -> bool:
 # ── Driver decisions (called from HTTP handlers) ──────────────────────
 
 
-def offered_driver(ride_id: str) -> str | None:
-    return _current_offer.get(ride_id)
+def offered_drivers(ride_id: str) -> set[str]:
+    """The set of drivers the ride is currently being offered to."""
+    return _current_offer.get(ride_id, set())
 
 
 def driver_accept(ride_id: str, driver_id: str) -> bool:
-    """Resolve a pending offer with accept. Returns False if not the offeree."""
-    if _current_offer.get(ride_id) != driver_id:
+    """Resolve a broadcast offer with accept. First accept wins; returns False
+    if this driver wasn't offered the ride or someone already accepted."""
+    if driver_id not in _current_offer.get(ride_id, set()):
         return False
-    return offer_broker.resolve(ride_id, True)
+    return offer_broker.accept(ride_id, driver_id)
 
 
 def driver_reject(ride_id: str, driver_id: str) -> bool:
-    if _current_offer.get(ride_id) != driver_id:
+    if driver_id not in _current_offer.get(ride_id, set()):
         return False
-    return offer_broker.resolve(ride_id, False)
+    return offer_broker.reject(ride_id, driver_id)
 
 
 # ── Status transitions (arrived / ongoing / completed / cancelled) ────
@@ -520,6 +555,7 @@ async def set_status(
         raise RideError(f"cannot move from {ride.status} to {target}")
 
     now = datetime.now()
+    revoke_ids: set[str] = set()
     if target == "arrived":
         ride.status = "arrived"
     elif target == "ongoing":
@@ -536,13 +572,16 @@ async def set_status(
         )
         ride.cancel_reason = cancel_reason
         offer_broker.cancel(str(ride_id))
-        _current_offer.pop(str(ride_id), None)
+        revoke_ids = _current_offer.pop(str(ride_id), set())
 
     if target in ("completed", "cancelled") and ride.driver_id:
         clear_active_ride(str(ride.driver_id))
 
     await db.commit()
     await db.refresh(ride)
+    # Close the offer card for anyone the ride was still being broadcast to.
+    if revoke_ids:
+        await _revoke_offers(revoke_ids, str(ride_id))
     await _notify_passenger(ride)
     await _notify_driver(ride)
     return ride

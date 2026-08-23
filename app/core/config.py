@@ -56,6 +56,12 @@ class Settings(BaseSettings):
     )
     driver_accept_timeout_seconds: int = 15
 
+    # Broadcast dispatch: an order is offered to every eligible driver within
+    # this radius at once (ranked nearest-first); the first to accept wins and
+    # the rest have their offer revoked. broadcast_max_drivers caps the fan-out.
+    broadcast_radius_meters: int = 10000
+    broadcast_max_drivers: int = 20
+
     # We price on straight-line (haversine) distance between pickup and dropoff,
     # but drivers travel the road network, which is always longer. Multiply the
     # straight-line distance by this factor to approximate real road distance so
