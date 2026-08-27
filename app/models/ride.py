@@ -58,6 +58,20 @@ class Ride(Base):
 
     payment_method: Mapped[str] = mapped_column(String(20), default="cash")
 
+    # Waiting-time meter — the driver waits at pickup or mid-trip. Server-timed:
+    # ``waiting_started_at`` is set while the meter runs; on stop the elapsed
+    # time is folded into ``waiting_seconds``. ``waiting_charge`` is the final
+    # so'm amount, computed and frozen at completion.
+    waiting_seconds: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0", default=0
+    )
+    waiting_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False)
+    )
+    waiting_charge: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0", default=0
+    )
+
     created_at: Mapped[datetime] = created_at_col()
     accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False))

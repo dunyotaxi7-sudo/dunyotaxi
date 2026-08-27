@@ -189,6 +189,8 @@ export interface PricingConfig {
   night_multiplier: string;
   night_start: string; // "22:00:00"
   night_end: string;
+  wait_free_minutes: number;
+  wait_per_minute: number;
   is_active: boolean;
   updated_at: string | null;
 }
@@ -201,6 +203,8 @@ export interface PricingConfigUpdate {
   night_multiplier?: number;
   night_start?: string;
   night_end?: string;
+  wait_free_minutes?: number;
+  wait_per_minute?: number;
   is_active?: boolean;
 }
 

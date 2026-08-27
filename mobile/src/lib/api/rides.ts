@@ -72,6 +72,14 @@ export const ridesApi = {
   get: (rideId: string) =>
     api.get<RidePublic>(`/rides/${rideId}`).then((r) => r.data),
 
+  // Waiting-meter rate (free minutes + so'm/minute) for the live charge display.
+  waitingRate: () =>
+    api
+      .get<{ wait_free_minutes: number; wait_per_minute: number }>(
+        "/rides/waiting-rate",
+      )
+      .then((r) => r.data),
+
   driver: (rideId: string) =>
     api
       .get<RideDriverInfo>(`/rides/${rideId}/driver`)

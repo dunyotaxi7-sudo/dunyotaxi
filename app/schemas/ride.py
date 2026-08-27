@@ -72,6 +72,11 @@ class RidePublic(ORMModel):
     price_sum: int | None = None
     status: str
     payment_method: str
+    # Waiting meter: total accrued seconds, the (live/final) charge, and the
+    # timestamp the meter is currently running from (null = not waiting).
+    waiting_seconds: int = 0
+    waiting_charge: int = 0
+    waiting_started_at: datetime | None = None
     cancelled_by: str | None = None
     cancel_reason: str | None = None
     created_at: datetime | None = None
@@ -135,3 +140,5 @@ class RideDriverView(BaseModel):
     passenger_name: str
     passenger_phone: str
     passenger_rating: float | None = None
+    waiting_seconds: int = 0
+    waiting_started_at: datetime | None = None

@@ -69,6 +69,14 @@ class PricingConfig(Base):
     )
     night_start: Mapped[time] = mapped_column(Time, default=time(22, 0))
     night_end: Mapped[time] = mapped_column(Time, default=time(6, 0))
+    # Waiting-time meter: a free allowance, then a per-minute charge for the
+    # driver waiting at pickup or mid-trip. Admin-controllable.
+    wait_free_minutes: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="3", default=3
+    )
+    wait_per_minute: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="1000", default=1000
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     updated_by: Mapped[uuid.UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("users.id")

@@ -19,6 +19,7 @@ import {
 import { ridesApi } from "@/lib/api/rides";
 import { useRideSocket } from "@/lib/ws/useRideSocket";
 import { Button } from "@/components/ui/Button";
+import { WaitingMeter } from "@/components/WaitingMeter";
 import { formatSom } from "@/lib/format";
 import { paymentLabel, t } from "@/lib/strings";
 import type { RideStatus } from "@/lib/types";
@@ -151,6 +152,15 @@ export default function ActiveRideScreen() {
           </View>
         ) : (
           <Text style={styles.muted}>{t.ride.driverLoading}</Text>
+        )}
+
+        {ride && (
+          <View style={{ marginTop: spacing(3) }}>
+            <WaitingMeter
+              waitingSeconds={ride.waiting_seconds}
+              waitingStartedAt={ride.waiting_started_at}
+            />
+          </View>
         )}
 
         <View style={styles.fareRow}>

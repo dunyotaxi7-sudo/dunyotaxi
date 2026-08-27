@@ -156,6 +156,8 @@ export interface RideDriverView {
   passenger_name: string;
   passenger_phone: string;
   passenger_rating: number | null;
+  waiting_seconds: number;
+  waiting_started_at: string | null;
 }
 
 export type RideStatus =
@@ -216,6 +218,9 @@ export interface RidePublic {
   price_sum: number | null;
   status: RideStatus;
   payment_method: PaymentMethod;
+  waiting_seconds: number;
+  waiting_charge: number;
+  waiting_started_at: string | null;
   cancelled_by: string | null;
   cancel_reason: string | null;
   created_at: string | null;

@@ -20,6 +20,8 @@ interface FormState {
   night_multiplier: string;
   night_start: string; // HH:MM
   night_end: string;
+  wait_free_minutes: string;
+  wait_per_minute: string;
   is_active: boolean;
 }
 
@@ -39,6 +41,8 @@ function toForm(cfg: PricingConfig): FormState {
     night_multiplier: String(cfg.night_multiplier),
     night_start: hhmm(cfg.night_start),
     night_end: hhmm(cfg.night_end),
+    wait_free_minutes: String(cfg.wait_free_minutes ?? 3),
+    wait_per_minute: String(cfg.wait_per_minute ?? 1000),
     is_active: cfg.is_active,
   };
 }
@@ -110,6 +114,8 @@ export default function PricingPage() {
       night_multiplier: num(form.night_multiplier),
       night_start: form.night_start,
       night_end: form.night_end,
+      wait_free_minutes: Math.round(num(form.wait_free_minutes)),
+      wait_per_minute: Math.round(num(form.wait_per_minute)),
       is_active: form.is_active,
     });
   };
@@ -175,6 +181,21 @@ export default function PricingPage() {
             value={form.night_end}
             onChange={(v) => set("night_end", v)}
             type="time"
+          />
+          <Field
+            label="Bepul kutish (daqiqa)"
+            hint="Shu vaqtdan keyin kutish pullik"
+            value={form.wait_free_minutes}
+            onChange={(v) => set("wait_free_minutes", v)}
+            type="number"
+          />
+          <Field
+            label="Kutish narxi (so'm/daqiqa)"
+            hint="Bepul vaqtdan keyin har daqiqa uchun"
+            value={form.wait_per_minute}
+            onChange={(v) => set("wait_per_minute", v)}
+            type="number"
+            step="50"
           />
         </div>
 

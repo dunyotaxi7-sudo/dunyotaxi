@@ -141,6 +141,17 @@ async def my_rides(
     return [RidePublic.model_validate(r) for r in res.scalars()]
 
 
+@router.get("/waiting-rate")
+async def waiting_rate(db: AsyncSession = Depends(get_db)):
+    """The waiting-meter rate (free minutes + per-minute so'm) both apps use to
+    show the live charge. Declared before /{ride_id} so it isn't shadowed."""
+    cfg = await pricing.get_active_config(db)
+    return {
+        "wait_free_minutes": cfg.wait_free_minutes if cfg else 3,
+        "wait_per_minute": cfg.wait_per_minute if cfg else 1000,
+    }
+
+
 @router.get("/{ride_id}", response_model=RidePublic)
 async def get_ride(
     ride_id: uuid.UUID,
@@ -249,6 +260,8 @@ async def driver_ride_view(
         passenger_name=passenger.full_name if passenger else "",
         passenger_phone=passenger.phone if passenger else "",
         passenger_rating=round(float(avg), 2) if avg is not None else None,
+        waiting_seconds=ride.waiting_seconds,
+        waiting_started_at=ride.waiting_started_at,
     )
 
 
@@ -337,6 +350,34 @@ async def start_ride(
         ride = await ride_service.set_status(
             db, ride_id, "ongoing", by_driver_id=driver.id
         )
+    except ride_service.RideError as e:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(e))
+    return RidePublic.model_validate(ride)
+
+
+@router.post("/{ride_id}/wait/start", response_model=RidePublic)
+async def wait_start(
+    ride_id: uuid.UUID,
+    driver: Driver = Depends(get_current_driver),
+    db: AsyncSession = Depends(get_db),
+):
+    """Driver starts the waiting meter (at pickup or mid-trip)."""
+    try:
+        ride = await ride_service.start_waiting(db, ride_id, driver.id)
+    except ride_service.RideError as e:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(e))
+    return RidePublic.model_validate(ride)
+
+
+@router.post("/{ride_id}/wait/stop", response_model=RidePublic)
+async def wait_stop(
+    ride_id: uuid.UUID,
+    driver: Driver = Depends(get_current_driver),
+    db: AsyncSession = Depends(get_db),
+):
+    """Driver stops the waiting meter; elapsed time is accumulated."""
+    try:
+        ride = await ride_service.stop_waiting(db, ride_id, driver.id)
     except ride_service.RideError as e:
         raise HTTPException(status.HTTP_409_CONFLICT, str(e))
     return RidePublic.model_validate(ride)

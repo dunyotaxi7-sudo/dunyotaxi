@@ -95,6 +95,16 @@ def apply_promo(price_sum: int, promo: PromoCode | None) -> int:
     return max(0, min(discount, price_sum))
 
 
+def compute_waiting_charge(cfg: PricingConfig, waiting_seconds: int) -> int:
+    """So'm charged for waiting time: full (ceil) minutes beyond the free
+    allowance, times the per-minute rate. Pure & deterministic."""
+    if waiting_seconds <= 0:
+        return 0
+    minutes = -(-waiting_seconds // 60)  # ceil division
+    billable = max(0, minutes - cfg.wait_free_minutes)
+    return billable * cfg.wait_per_minute
+
+
 async def get_active_config(db: AsyncSession) -> PricingConfig | None:
     res = await db.execute(
         select(PricingConfig)

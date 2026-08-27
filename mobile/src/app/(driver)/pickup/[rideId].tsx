@@ -12,6 +12,7 @@ import {
 } from "@/components/Map";
 import { driverApi } from "@/lib/api/driver";
 import { Button } from "@/components/ui/Button";
+import { WaitingMeter } from "@/components/WaitingMeter";
 import { callPhone, openExternalNav } from "@/lib/nav";
 import { t } from "@/lib/strings";
 import { colors, radius, spacing } from "@/theme/colors";
@@ -62,6 +63,13 @@ export default function DriverPickupScreen() {
   const decline = useMutation({
     mutationFn: () => driverApi.declineRide(rideId),
     onSuccess: () => router.replace("/"),
+  });
+  const waitToggle = useMutation({
+    mutationFn: () =>
+      ride?.waiting_started_at
+        ? driverApi.waitStop(rideId)
+        : driverApi.waitStart(rideId),
+    onSuccess: () => view.refetch(),
   });
 
   function confirmDecline() {
@@ -166,12 +174,22 @@ export default function DriverPickupScreen() {
             </Pressable>
           </>
         ) : (
-          <Button
-            title={t.driver.pickup.start}
-            onPress={() => start.mutate()}
-            loading={start.isPending}
-            style={{ marginTop: spacing(3) }}
-          />
+          <>
+            <View style={{ marginTop: spacing(3) }}>
+              <WaitingMeter
+                waitingSeconds={ride.waiting_seconds}
+                waitingStartedAt={ride.waiting_started_at}
+                onToggle={() => waitToggle.mutate()}
+                pending={waitToggle.isPending}
+              />
+            </View>
+            <Button
+              title={t.driver.pickup.start}
+              onPress={() => start.mutate()}
+              loading={start.isPending}
+              style={{ marginTop: spacing(3) }}
+            />
+          </>
         )}
       </View>
     </View>

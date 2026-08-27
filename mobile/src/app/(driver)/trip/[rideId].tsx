@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Map, type MapHandle, type MapMarker, useRoutePoints } from "@/components/Map";
 import { driverApi } from "@/lib/api/driver";
 import { Button } from "@/components/ui/Button";
+import { WaitingMeter } from "@/components/WaitingMeter";
 import { formatSom } from "@/lib/format";
 import { openExternalNav } from "@/lib/nav";
 import { paymentLabel, t } from "@/lib/strings";
@@ -48,6 +49,13 @@ export default function DriverTripScreen() {
   const finish = useMutation({
     mutationFn: () => driverApi.completeRide(rideId, ride?.payment_method ?? "cash"),
     onSuccess: () => router.replace({ pathname: "/summary/[rideId]", params: { rideId } }),
+  });
+  const waitToggle = useMutation({
+    mutationFn: () =>
+      ride?.waiting_started_at
+        ? driverApi.waitStop(rideId)
+        : driverApi.waitStart(rideId),
+    onSuccess: () => view.refetch(),
   });
 
   useEffect(() => {
@@ -101,6 +109,15 @@ export default function DriverTripScreen() {
         >
           <Text style={styles.navText}>🧭 {t.driver.pickup.navigation}</Text>
         </Pressable>
+
+        <View style={{ marginTop: spacing(3) }}>
+          <WaitingMeter
+            waitingSeconds={ride.waiting_seconds}
+            waitingStartedAt={ride.waiting_started_at}
+            onToggle={() => waitToggle.mutate()}
+            pending={waitToggle.isPending}
+          />
+        </View>
 
         <Button
           title={t.driver.trip.finish}

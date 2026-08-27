@@ -22,6 +22,8 @@ class PricingConfigBase(BaseModel):
     night_multiplier: float = Field(..., ge=1)
     night_start: time
     night_end: time
+    wait_free_minutes: int = Field(default=3, ge=0)
+    wait_per_minute: int = Field(default=1000, ge=0)
     is_active: bool = True
 
 
@@ -37,6 +39,8 @@ class PricingConfigUpdate(BaseModel):
     night_multiplier: float | None = Field(default=None, ge=1)
     night_start: time | None = None
     night_end: time | None = None
+    wait_free_minutes: int | None = Field(default=None, ge=0)
+    wait_per_minute: int | None = Field(default=None, ge=0)
     is_active: bool | None = None
 
 
@@ -49,6 +53,8 @@ class PricingConfigPublic(ORMModel):
     night_multiplier: Decimal
     night_start: time
     night_end: time
+    wait_free_minutes: int = 3
+    wait_per_minute: int = 1000
     is_active: bool
     updated_at: datetime | None = None
 

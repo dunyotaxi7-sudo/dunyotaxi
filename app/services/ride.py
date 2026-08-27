@@ -587,6 +587,49 @@ async def set_status(
     return ride
 
 
+def _finalize_waiting(ride: Ride) -> None:
+    """If the waiting meter is running, fold the elapsed time into
+    ``waiting_seconds`` and stop it. Safe to call when it isn't running."""
+    if ride.waiting_started_at is not None:
+        elapsed = int((datetime.now() - ride.waiting_started_at).total_seconds())
+        ride.waiting_seconds = (ride.waiting_seconds or 0) + max(0, elapsed)
+        ride.waiting_started_at = None
+
+
+async def start_waiting(
+    db: AsyncSession, ride_id: uuid.UUID, driver_id: uuid.UUID
+) -> Ride:
+    """Driver starts the waiting meter (only at pickup / mid-trip, own ride)."""
+    ride = await _load_ride(db, ride_id)
+    if ride.driver_id != driver_id:
+        raise RideError("not your ride")
+    if ride.status not in ("arrived", "ongoing"):
+        raise RideError("waiting is only available after arrival")
+    if ride.waiting_started_at is None:  # idempotent
+        ride.waiting_started_at = datetime.now()
+        await db.commit()
+        await db.refresh(ride)
+        await _notify_passenger(ride)
+        await _notify_driver(ride)
+    return ride
+
+
+async def stop_waiting(
+    db: AsyncSession, ride_id: uuid.UUID, driver_id: uuid.UUID
+) -> Ride:
+    """Driver stops the waiting meter; elapsed time is accumulated."""
+    ride = await _load_ride(db, ride_id)
+    if ride.driver_id != driver_id:
+        raise RideError("not your ride")
+    if ride.waiting_started_at is not None:  # idempotent
+        _finalize_waiting(ride)
+        await db.commit()
+        await db.refresh(ride)
+        await _notify_passenger(ride)
+        await _notify_driver(ride)
+    return ride
+
+
 async def complete_ride(db: AsyncSession, ride_id: uuid.UUID,
                         method: str | None, external_id: str | None) -> Ride:
     """Flip to 'completed' and create the payment row. The DB trigger does the
@@ -594,6 +637,16 @@ async def complete_ride(db: AsyncSession, ride_id: uuid.UUID,
     ride = await _load_ride(db, ride_id)
     if not can_transition(ride.status, "completed"):
         raise RideError(f"cannot complete from {ride.status}")
+
+    # Finalize the waiting meter and fold its charge into the fare, so the
+    # payment total AND the DB commission both include it.
+    _finalize_waiting(ride)
+    cfg = await pricing.get_active_config(db)
+    ride.waiting_charge = (
+        pricing.compute_waiting_charge(cfg, ride.waiting_seconds) if cfg else 0
+    )
+    if ride.waiting_charge:
+        ride.price_sum = (ride.price_sum or 0) + ride.waiting_charge
 
     pay_method = method or ride.payment_method
     payment = Payment(
@@ -636,6 +689,12 @@ def _ride_event(ride: Ride, extra: dict | None = None) -> dict:
         "status": ride.status,
         "driver_id": str(ride.driver_id) if ride.driver_id else None,
         "price_sum": ride.price_sum,
+        "waiting_seconds": ride.waiting_seconds,
+        "waiting_charge": ride.waiting_charge,
+        "waiting_started_at": (
+            ride.waiting_started_at.isoformat()
+            if ride.waiting_started_at else None
+        ),
         "cancelled_by": ride.cancelled_by,
         "cancel_reason": ride.cancel_reason,
     }

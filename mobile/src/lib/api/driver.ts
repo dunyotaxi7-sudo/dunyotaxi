@@ -114,6 +114,12 @@ export const driverApi = {
   startRide: (rideId: string) =>
     api.post(`/rides/${rideId}/start`).then((r) => r.data),
 
+  // Waiting meter (at pickup or mid-trip).
+  waitStart: (rideId: string) =>
+    api.post(`/rides/${rideId}/wait/start`).then((r) => r.data),
+  waitStop: (rideId: string) =>
+    api.post(`/rides/${rideId}/wait/stop`).then((r) => r.data),
+
   completeRide: (rideId: string, method = "cash") =>
     api
       .post(`/payments/rides/${rideId}/complete`, { method })
