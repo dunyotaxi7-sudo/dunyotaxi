@@ -9,13 +9,13 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse
 
 from app.api import admin, auth, driver, notifications, payments, rides
 from app.core.config import settings
+from app.core.signed_url import verify as verify_upload
 from app.core.database import AsyncSessionLocal
 from app.core.redis_client import close_redis, get_redis
 from app.services import ride as ride_service
@@ -90,10 +90,26 @@ app.include_router(admin.router)
 # WebSocket routes
 app.include_router(ws_routes.router)
 
-# Serve uploaded driver documents.
+# Serve uploaded driver documents — PRIVATE. Passport/ID/car photos are not
+# publicly accessible: the URL must carry a valid short-lived signature (handed
+# out only in authenticated API responses, see schemas.driver.DocumentPublic).
 _uploads = Path("uploads")
 _uploads.mkdir(exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=str(_uploads)), name="uploads")
+
+
+@app.get("/uploads/{path:path}", include_in_schema=False)
+async def serve_upload(path: str, request: Request):
+    full = f"/uploads/{path}"
+    if not verify_upload(
+        full, request.query_params.get("exp"), request.query_params.get("sig")
+    ):
+        raise HTTPException(status_code=403, detail="forbidden")
+    base = _uploads.resolve()
+    target = (base / path).resolve()
+    # Guard against path traversal and only serve real files.
+    if not str(target).startswith(str(base) + "/") or not target.is_file():
+        raise HTTPException(status_code=404, detail="not found")
+    return FileResponse(target)
 
 
 @app.get("/health", tags=["system"])

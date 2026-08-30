@@ -5,7 +5,9 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.core.signed_url import sign as _sign_upload
 
 from app.schemas.common import ORMModel
 
@@ -51,6 +53,13 @@ class DocumentPublic(ORMModel):
     reject_reason: str | None = None
     reviewed_at: datetime | None = None
     uploaded_at: datetime | None = None
+
+    @field_validator("file_url", mode="after")
+    @classmethod
+    def _sign_url(cls, v: str) -> str:
+        # Documents aren't public — hand out a short-lived signed URL so only an
+        # authenticated caller who was given it (owner/admin) can open the file.
+        return _sign_upload(v) if v.startswith("/uploads/") else v
 
 
 class DriverStatusUpdate(BaseModel):
