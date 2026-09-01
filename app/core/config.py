@@ -56,6 +56,11 @@ class Settings(BaseSettings):
     )
     driver_accept_timeout_seconds: int = 15
 
+    # A driver is only "online" for dispatch/map while they're actively
+    # streaming location. If no update arrives within this window (app crashed,
+    # force-closed, or lost signal), their stale position drops out of the pool.
+    driver_location_ttl_seconds: int = 120
+
     # Broadcast dispatch: an order is offered to every eligible driver within
     # this radius at once (ranked nearest-first); the first to accept wins and
     # the rest have their offer revoked. broadcast_max_drivers caps the fan-out.
