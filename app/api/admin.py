@@ -50,7 +50,9 @@ from app.schemas.admin import (
     DriverBalanceOut,
     DriverBalanceUpdate,
     DriverTxRow,
+    AssignDriver,
     LiveRideRow,
+    NearbyOrderDriver,
     BonusCampaignCreate,
     BonusCampaignPublic,
     BonusCampaignUpdate,
@@ -462,6 +464,44 @@ async def cancel_ride(
         )
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+    return RidePublic.model_validate(ride)
+
+
+@router.get("/rides/{ride_id}/nearby-drivers", response_model=list[NearbyOrderDriver])
+async def ride_nearby_drivers(
+    ride_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    r: redis.Redis = Depends(get_redis_dep),
+):
+    """Eligible online drivers near this order's pickup, nearest first — for the
+    operator to choose one to assign."""
+    rows = await admin_service.order_nearby_drivers(db, r, ride_id)
+    return [NearbyOrderDriver(**x) for x in rows]
+
+
+@router.post("/rides/{ride_id}/assign", response_model=RidePublic)
+async def assign_ride(
+    ride_id: uuid.UUID,
+    payload: AssignDriver,
+    request: Request,
+    admin: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Assign a still-searching order to a chosen driver (operator dispatch)."""
+    ok = await ride_service.force_assign(str(ride_id), str(payload.driver_id))
+    if not ok:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Buyurtma allaqachon biriktirilgan yoki mavjud emas",
+        )
+    await admin_service.log_action(
+        db, admin.id, "ride_assign", entity_type="ride",
+        entity_id=str(ride_id),
+        new_value={"driver_id": str(payload.driver_id)},
+        ip_address=client_ip(request),
+    )
+    await db.commit()
+    ride = await db.get(Ride, ride_id)
     return RidePublic.model_validate(ride)
 
 

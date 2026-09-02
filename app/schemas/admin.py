@@ -314,6 +314,22 @@ class LiveRideRow(BaseModel):
     accepted_at: datetime | None = None
 
 
+class NearbyOrderDriver(BaseModel):
+    """An online driver near an order's pickup — for the operator assign list."""
+    driver_id: uuid.UUID
+    full_name: str
+    phone: str
+    car_model: str
+    car_number: str
+    car_class: str
+    rating: float
+    distance_m: float
+
+
+class AssignDriver(BaseModel):
+    driver_id: uuid.UUID
+
+
 class AdminRideRow(BaseModel):
     id: uuid.UUID
     passenger_name: str | None = None

@@ -18,6 +18,7 @@ import type {
   DriverPublic,
   DriverStatus,
   LiveRideRow,
+  NearbyOrderDriver,
   UpdateDriverProfileInput,
   OnlineDriver,
   PassengerDetail,
@@ -170,6 +171,15 @@ export const ridesApi = {
     api.get<AdminRideDetail>(`/admin/rides/${id}`).then((r) => r.data),
   cancel: (id: string, reason?: string) =>
     api.post(`/admin/rides/${id}/cancel`, { reason }).then((r) => r.data),
+  // Operator dispatch: nearby drivers for an order, and assign one.
+  nearbyDrivers: (id: string) =>
+    api
+      .get<NearbyOrderDriver[]>(`/admin/rides/${id}/nearby-drivers`)
+      .then((r) => r.data),
+  assign: (id: string, driverId: string) =>
+    api
+      .post(`/admin/rides/${id}/assign`, { driver_id: driverId })
+      .then((r) => r.data),
 };
 
 // ── Orders (manual admin dispatch) ────────────────────────────────────

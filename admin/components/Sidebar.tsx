@@ -20,6 +20,7 @@ const NAV: NavItem[] = [
   { href: "/passengers", label: "Yo'lovchilar", icon: "passengers" },
   { href: "/orders", label: "Buyurtma berish", icon: "orders" },
   { href: "/live", label: "Jonli buyurtmalar", icon: "live" },
+  { href: "/dispatch", label: "Buyurtmalar", icon: "orders" },
   { href: "/map", label: "Jonli xarita", icon: "map" },
   { href: "/rides", label: "Sayohatlar", icon: "rides" },
   { href: "/pricing", label: "Narxlar", icon: "pricing", requires: "finance" },

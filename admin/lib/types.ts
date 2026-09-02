@@ -284,6 +284,17 @@ export interface AdminRideRow {
   created_at: string | null;
 }
 
+export interface NearbyOrderDriver {
+  driver_id: string;
+  full_name: string;
+  phone: string;
+  car_model: string;
+  car_number: string;
+  car_class: string;
+  rating: number;
+  distance_m: number;
+}
+
 export interface LiveRideRow {
   id: string;
   passenger_name: string | null;

@@ -28,6 +28,8 @@ from app.models import (
 )
 from app.services import auth as auth_service
 from app.services import location
+from app.services import matching
+from app.services import pricing
 from app.services import ride as ride_service
 
 
@@ -453,6 +455,53 @@ async def rides_daily(db: AsyncSession, days: int) -> list[dict]:
         }
         for r in rows
     ]
+
+
+async def order_nearby_drivers(
+    db: AsyncSession, r: redis.Redis, ride_id: uuid.UUID
+) -> list[dict]:
+    """Eligible online drivers near an order's pickup, nearest first — for the
+    operator to pick one to assign."""
+    ride = await db.get(Ride, ride_id)
+    if ride is None:
+        return []
+    flat, flng = (await db.execute(
+        select(
+            func.ST_Y(cast(Ride.from_location, Geometry)),
+            func.ST_X(cast(Ride.from_location, Geometry)),
+        ).where(Ride.id == ride_id)
+    )).one()
+    eligible = await pricing.eligible_car_classes(db, ride.car_type)
+    cands = await matching.find_nearest_drivers(
+        db, r, float(flat), float(flng),
+        radii=[settings.broadcast_radius_meters], limit=20, car_classes=eligible,
+    )
+    if not cands:
+        return []
+    by_id = {c.driver_id: c for c in cands}
+    rows = (await db.execute(
+        select(
+            Driver.id, Driver.car_model, Driver.car_number, Driver.car_class,
+            Driver.rating, User.full_name, User.phone,
+        ).join(User, User.id == Driver.user_id)
+        .where(Driver.id.in_([uuid.UUID(c.driver_id) for c in cands]))
+    )).all()
+    out = [
+        {
+            "driver_id": str(row.id),
+            "full_name": row.full_name or "",
+            "phone": row.phone or "",
+            "car_model": row.car_model,
+            "car_number": row.car_number,
+            "car_class": row.car_class,
+            "rating": float(row.rating),
+            "distance_m": round(by_id[str(row.id)].distance_m, 1),
+        }
+        for row in rows
+        if str(row.id) in by_id
+    ]
+    out.sort(key=lambda d: d["distance_m"])
+    return out
 
 
 # ── Manual orders (admin dispatch) ────────────────────────────────────
