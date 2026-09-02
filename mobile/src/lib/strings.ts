@@ -101,6 +101,15 @@ export const t = {
   searching: {
     title: "Haydovchi qidirilmoqda…",
     sub: "Eng yaqin haydovchi izlanmoqda",
+    // Cycled every few seconds so the wait feels alive.
+    steps: [
+      "Buyurtmangiz yuborilmoqda…",
+      "Yaqin atrofdagi haydovchilar qidirilmoqda…",
+      "Haydovchilar xabardor qilinmoqda…",
+      "Eng yaqin haydovchi tanlanmoqda…",
+      "Haydovchi javobini kutmoqdamiz…",
+      "Biroz kuting, deyarli tayyor…",
+    ],
     noDriverTitle: "Haydovchi topilmadi",
     noDriverSub:
       "Hozircha yaqin atrofda bo'sh haydovchi yo'q. Qaytadan urinib ko'ring.",

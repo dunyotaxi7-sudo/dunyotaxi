@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Animated,
   AppState,
@@ -82,6 +82,16 @@ export default function SearchingScreen() {
   const noDriver =
     status === "cancelled" && cancelledBy !== "passenger";
 
+  // Cycle the status line so the wait feels alive.
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const id = setInterval(
+      () => setStep((s) => (s + 1) % t.searching.steps.length),
+      3500,
+    );
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <SafeAreaView style={styles.safe}>
       <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
@@ -96,7 +106,7 @@ export default function SearchingScreen() {
         ) : (
           <>
             <Pulse />
-            <Text style={styles.title}>{t.searching.title}</Text>
+            <Text style={styles.title}>{t.searching.steps[step]}</Text>
             <Text style={styles.sub}>{t.searching.sub}</Text>
 
             <View style={{ flex: 1 }} />
