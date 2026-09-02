@@ -17,6 +17,14 @@ function mmss(totalSeconds: number): string {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+// The backend sends timestamps as naive UTC (no tz suffix). A phone in UTC+5
+// would otherwise parse them as local time and the meter would jump ~5h ahead
+// the instant it starts. Treat a tz-less string as UTC.
+function parseServerUtcMs(s: string): number {
+  const hasTz = /[zZ]$|[+-]\d\d:?\d\d$/.test(s);
+  return new Date(hasTz ? s : s + "Z").getTime();
+}
+
 /**
  * Waiting-time meter. Server-timed: `waitingSeconds` is the accumulated total
  * and `waitingStartedAt` (ISO) is set while the meter is running. The live
@@ -55,7 +63,7 @@ export function WaitingMeter({
   const runningExtra = active
     ? Math.max(
         0,
-        Math.floor((Date.now() - new Date(waitingStartedAt!).getTime()) / 1000),
+        Math.floor((Date.now() - parseServerUtcMs(waitingStartedAt!)) / 1000),
       )
     : 0;
   const total = (waitingSeconds || 0) + runningExtra;
