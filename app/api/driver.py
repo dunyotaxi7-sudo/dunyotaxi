@@ -24,6 +24,7 @@ from app.api.deps import get_current_driver, get_current_user, get_redis_dep
 from app.core.database import get_db
 from app.models import CarModel, Driver, DriverCommission, DriverDocument, Ride, User
 from app.schemas.driver import (
+    AvailableOrder,
     CarModelOption,
     DocumentPublic,
     DocumentUpload,
@@ -258,6 +259,19 @@ async def update_location(
     """HTTP location update — used for background streaming (where holding a
     WebSocket open isn't reliable). Same effect as the location WS."""
     await ride_service.relay_driver_location(r, str(driver.id), payload.lat, payload.lng)
+
+
+@router.get("/available-orders", response_model=list[AvailableOrder])
+async def available_orders(
+    lat: float,
+    lng: float,
+    driver: Driver = Depends(get_current_driver),
+    db: AsyncSession = Depends(get_db),
+):
+    """Open orders this driver can claim — searching rides of a tier they serve,
+    within the broadcast radius of (lat, lng), nearest pickup first."""
+    rows = await ride_service.available_orders(db, driver, lat, lng)
+    return [AvailableOrder(**r) for r in rows]
 
 
 @router.get("/pending-offer")

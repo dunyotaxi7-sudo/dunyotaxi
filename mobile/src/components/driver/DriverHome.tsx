@@ -29,6 +29,7 @@ import { registerForPush } from "@/lib/push";
 import { bgLocationConsent } from "@/lib/storage";
 import { RideOfferModal } from "@/components/driver/RideOfferModal";
 import { BackgroundLocationDisclosure } from "@/components/driver/BackgroundLocationDisclosure";
+import { AvailableOrdersList } from "@/components/driver/AvailableOrdersList";
 import { formatSom } from "@/lib/format";
 import { t } from "@/lib/strings";
 import type { DriverProfile } from "@/lib/types";
@@ -285,8 +286,13 @@ export function DriverHome({ driver }: { driver: DriverProfile }) {
         <Ionicons name="locate" size={20} color={colors.primary} />
       </Pressable>
 
-      {/* Online/offline toggle */}
+      {/* Available orders board (list dispatch) + online/offline toggle */}
       <View style={[styles.bottom, { paddingBottom: insets.bottom + spacing(4) }]}>
+        {online ? (
+          <View style={{ marginBottom: spacing(3) }}>
+            <AvailableOrdersList coords={location.coords} />
+          </View>
+        ) : null}
         <Pressable
           onPress={onToggle}
           disabled={toggle.isPending}

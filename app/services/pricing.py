@@ -145,6 +145,22 @@ async def eligible_car_classes(db: AsyncSession, car_type: str) -> list[str]:
     return [c for c in res.scalars()]
 
 
+async def serveable_car_classes(db: AsyncSession, driver_class: str) -> list[str]:
+    """Order tiers a driver of ``driver_class`` may take — their own tier and
+    every lower one (the inverse of :func:`eligible_car_classes`). A Komfort
+    driver serves Econom + Komfort orders; an Econom driver only Econom."""
+    rank = await db.execute(
+        select(CarType.sort_order).where(CarType.code == driver_class)
+    )
+    driver_rank = rank.scalar_one_or_none()
+    if driver_rank is None:
+        return [driver_class]
+    res = await db.execute(
+        select(CarType.code).where(CarType.sort_order <= driver_rank)
+    )
+    return [c for c in res.scalars()]
+
+
 async def get_promo_by_code(db: AsyncSession, code: str | None) -> PromoCode | None:
     if not code:
         return None

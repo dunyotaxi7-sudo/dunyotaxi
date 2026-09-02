@@ -18,7 +18,7 @@ from decimal import Decimal
 
 import redis.asyncio as redis
 from geoalchemy2 import Geometry
-from sqlalchemy import cast, func, select
+from sqlalchemy import cast, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -441,6 +441,122 @@ async def _no_driver_found(ride_id: str) -> None:
         await _notify_passenger(ride)
 
 
+# ── List (marketplace) dispatch ───────────────────────────────────────
+
+
+async def available_orders(
+    db: AsyncSession, driver, lat: float, lng: float
+) -> list[dict]:
+    """Open orders a driver may claim: 'searching' rides of a tier they serve,
+    within the broadcast radius of (lat, lng), nearest pickup first."""
+    serveable = await pricing.serveable_car_classes(db, driver.car_class)
+    rows = (await db.execute(
+        select(
+            Ride.id, Ride.from_address, Ride.to_address, Ride.price_sum,
+            Ride.car_type, Ride.payment_method, Ride.distance_km,
+            Ride.duration_min, Ride.created_at,
+            func.ST_Y(cast(Ride.from_location, Geometry)),
+            func.ST_X(cast(Ride.from_location, Geometry)),
+        ).where(
+            Ride.status == "searching",
+            Ride.car_type.in_(serveable),
+        ).order_by(Ride.created_at.desc()).limit(100)
+    )).all()
+    out: list[dict] = []
+    for (rid, fa, ta, price, ctype, pay, dkm, dur, created, flat, flng) in rows:
+        pickup_m = haversine_km(lat, lng, float(flat), float(flng)) * 1000
+        if pickup_m <= settings.broadcast_radius_meters:
+            out.append({
+                "ride_id": str(rid),
+                "from_address": fa,
+                "to_address": ta,
+                "price_sum": price,
+                "car_type": ctype,
+                "payment_method": pay,
+                "distance_km": float(dkm) if dkm is not None else None,
+                "duration_min": dur,
+                "pickup_distance_m": round(pickup_m, 1),
+                "created_at": created,
+            })
+    out.sort(key=lambda o: o["pickup_distance_m"])
+    return out
+
+
+async def claim_ride(db: AsyncSession, ride_id: uuid.UUID, driver) -> Ride:
+    """Driver claims an open order. Atomic first-tap-wins: assigns only while
+    the ride is still 'searching'. Raises RideError('already taken') if lost."""
+    if await driver_below_floor(db, driver):
+        raise RideError("balance below limit")
+    if get_active_ride_for_driver(str(driver.id)) is not None:
+        raise RideError("finish your current ride first")
+    res = await db.execute(
+        update(Ride)
+        .where(Ride.id == ride_id, Ride.status == "searching")
+        .values(driver_id=driver.id, status="accepted", accepted_at=datetime.now())
+    )
+    if res.rowcount == 0:
+        await db.rollback()
+        raise RideError("already taken")
+    await db.commit()
+    ride = await db.get(Ride, ride_id)
+    set_active_ride(str(driver.id), str(ride_id), str(ride.passenger_id))
+    _current_offer.pop(str(ride_id), None)
+    offer_broker.cancel(str(ride_id))
+    await _notify_passenger(ride, extra={"driver_id": str(driver.id)})
+    return ride
+
+
+def announce_order(ride_id: uuid.UUID, lat: float, lng: float) -> None:
+    """Fire-and-forget: ping nearby drivers that a new order is on the board,
+    then auto-assign the nearest free driver if nobody claims it in time."""
+    asyncio.create_task(_announce_and_fallback(str(ride_id), lat, lng))
+
+
+async def _announce_and_fallback(ride_id: str, lat: float, lng: float) -> None:
+    r = get_redis()
+    try:
+        async with AsyncSessionLocal() as db:
+            ride = await db.get(Ride, uuid.UUID(ride_id))
+            if ride is None or ride.status != "searching":
+                return
+            eligible = await pricing.eligible_car_classes(db, ride.car_type)
+            cands = await matching.find_nearest_drivers(
+                db, r, lat, lng, radii=[settings.broadcast_radius_meters],
+                limit=settings.broadcast_max_drivers, car_classes=eligible,
+            )
+        for c in cands:
+            user_id = await _driver_user_id(c.driver_id)
+            if user_id:
+                try:
+                    await push.send_to_user(
+                        r, user_id, "Yangi buyurtma!",
+                        "Yaqiningizda yangi buyurtma bor",
+                        data={"type": "new_order", "ride_id": ride_id},
+                    )
+                except Exception:  # noqa: BLE001
+                    log.exception("new-order push failed for %s", c.driver_id)
+
+        if settings.list_fallback_seconds <= 0:
+            return
+        await asyncio.sleep(settings.list_fallback_seconds)
+        async with AsyncSessionLocal() as db:
+            ride = await db.get(Ride, uuid.UUID(ride_id))
+            if ride is None or ride.status != "searching":
+                return
+            eligible = await pricing.eligible_car_classes(db, ride.car_type)
+            cands = await matching.find_nearest_drivers(
+                db, r, lat, lng, radii=[settings.broadcast_radius_meters],
+                limit=1, car_classes=eligible,
+                exclude=set(_active_ride_by_driver.keys()),
+            )
+        if cands:
+            await force_assign(ride_id, cands[0].driver_id)
+        else:
+            await _no_driver_found(ride_id)
+    except Exception:  # noqa: BLE001
+        log.exception("announce/fallback failed for ride %s", ride_id)
+
+
 async def force_assign(ride_id: str, driver_id: str) -> bool:
     """Admin force-assign: pin a searching ride to a driver with no accept step.
     The driver's app picks it up via its current-ride poll / a push nudge.
@@ -778,7 +894,7 @@ async def recover_searching_rides() -> None:
     for ride_id, created_at, lat, lng in rows:
         age = (now - created_at).total_seconds() if created_at else 1e9
         if age <= STALE_SEARCH_SECONDS:
-            start_dispatch(ride_id, float(lat), float(lng))
+            announce_order(ride_id, float(lat), float(lng))
             resumed += 1
         else:
             await _no_driver_found(str(ride_id))

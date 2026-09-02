@@ -102,8 +102,10 @@ async def request_ride(
     except ride_service.RideError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
 
-    # Kick off background driver matching.
-    ride_service.start_dispatch(
+    # List dispatch: the order goes on the open board for nearby drivers to
+    # claim; they're pinged, and it auto-assigns to the nearest driver if it
+    # stays unclaimed past the fallback window.
+    ride_service.announce_order(
         ride.id, payload.from_location.lat, payload.from_location.lng
     )
     return RidePublic.model_validate(ride)
@@ -282,6 +284,27 @@ async def accept_ride(
         )
     # The dispatch loop performs the DB assignment; return the (soon) updated ride.
     ride = await db.get(Ride, ride_id)
+    return RidePublic.model_validate(ride)
+
+
+@router.post("/{ride_id}/claim", response_model=RidePublic)
+async def claim_ride(
+    ride_id: uuid.UUID,
+    driver: Driver = Depends(get_current_driver),
+    db: AsyncSession = Depends(get_db),
+):
+    """Claim an open order from the list. First tap wins; a lost race returns
+    409 'already taken'."""
+    try:
+        ride = await ride_service.claim_ride(db, ride_id, driver)
+    except ride_service.RideError as e:
+        msg = str(e)
+        code = (
+            status.HTTP_409_CONFLICT
+            if msg in ("already taken", "finish your current ride first")
+            else status.HTTP_403_FORBIDDEN
+        )
+        raise HTTPException(code, msg)
     return RidePublic.model_validate(ride)
 
 

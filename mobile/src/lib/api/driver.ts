@@ -1,5 +1,6 @@
 import { api } from "./client";
 import type {
+  AvailableOrder,
   CarModelOption,
   DocType,
   DriverBonus,
@@ -118,6 +119,16 @@ export const driverApi = {
 
   startRide: (rideId: string) =>
     api.post(`/rides/${rideId}/start`).then((r) => r.data),
+
+  // ── List (marketplace) dispatch ──────────────────────────────────────
+  // Open orders the driver can claim, nearest first.
+  availableOrders: (lat: number, lng: number) =>
+    api
+      .get<AvailableOrder[]>("/driver/available-orders", { params: { lat, lng } })
+      .then((r) => r.data),
+  // Claim an open order (first tap wins; 409 = already taken).
+  claimRide: (rideId: string) =>
+    api.post(`/rides/${rideId}/claim`).then((r) => r.data),
 
   // Waiting meter (at pickup or mid-trip).
   waitStart: (rideId: string) =>

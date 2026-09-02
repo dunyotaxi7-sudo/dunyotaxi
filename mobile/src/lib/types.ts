@@ -160,6 +160,19 @@ export interface RideDriverView {
   waiting_started_at: string | null;
 }
 
+export interface AvailableOrder {
+  ride_id: string;
+  from_address: string;
+  to_address: string;
+  price_sum: number | null;
+  car_type: string;
+  payment_method: PaymentMethod;
+  distance_km: number | null;
+  duration_min: number | null;
+  pickup_distance_m: number;
+  created_at: string | null;
+}
+
 export type RideStatus =
   | "searching"
   | "accepted"

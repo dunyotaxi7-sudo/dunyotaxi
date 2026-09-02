@@ -62,6 +62,20 @@ class DocumentPublic(ORMModel):
         return _sign_upload(v) if v.startswith("/uploads/") else v
 
 
+class AvailableOrder(BaseModel):
+    """An open order shown on the driver's list (marketplace dispatch)."""
+    ride_id: uuid.UUID
+    from_address: str
+    to_address: str
+    price_sum: int | None = None
+    car_type: str
+    payment_method: str
+    distance_km: float | None = None
+    duration_min: int | None = None
+    pickup_distance_m: float
+    created_at: datetime | None = None
+
+
 class DriverStatusUpdate(BaseModel):
     is_online: bool
     # Current position, so going online registers the driver on the live map

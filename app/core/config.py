@@ -67,6 +67,11 @@ class Settings(BaseSettings):
     broadcast_radius_meters: int = 10000
     broadcast_max_drivers: int = 20
 
+    # List (marketplace) dispatch: orders sit in an open list drivers pick from.
+    # If nobody claims within this window, the order is auto-assigned to the
+    # nearest online driver so cheap/far orders aren't stranded (0 = disabled).
+    list_fallback_seconds: int = 120
+
     # We price on straight-line (haversine) distance between pickup and dropoff,
     # but drivers travel the road network, which is always longer. Multiply the
     # straight-line distance by this factor to approximate real road distance so
