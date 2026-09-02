@@ -64,6 +64,10 @@ class DocumentPublic(ORMModel):
 
 class DriverStatusUpdate(BaseModel):
     is_online: bool
+    # Current position, so going online registers the driver on the live map
+    # immediately instead of waiting for the first streamed GPS fix.
+    lat: float | None = None
+    lng: float | None = None
 
 
 class DriverTodayStats(BaseModel):

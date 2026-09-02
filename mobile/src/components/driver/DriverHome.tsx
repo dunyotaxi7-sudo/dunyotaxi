@@ -173,7 +173,10 @@ export function DriverHome({ driver }: { driver: DriverProfile }) {
   });
 
   const toggle = useMutation({
-    mutationFn: (next: boolean) => driverApi.setOnline(next),
+    // Include the current position when going online so the driver shows on the
+    // live map immediately, before the first streamed GPS fix.
+    mutationFn: (next: boolean) =>
+      driverApi.setOnline(next, next ? location.coords : null),
     onSuccess: (_d, next) => setOnline(next),
     onError: () => Alert.alert(t.driver.home.statusError),
   });

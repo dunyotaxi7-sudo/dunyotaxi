@@ -297,7 +297,9 @@ async def set_status(
     r: redis.Redis = Depends(get_redis_dep),
 ):
     try:
-        driver = await driver_service.set_online(db, r, driver, payload.is_online)
+        driver = await driver_service.set_online(
+            db, r, driver, payload.is_online, payload.lat, payload.lng
+        )
     except driver_service.DriverError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
     return DriverPublic.model_validate(driver)

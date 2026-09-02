@@ -68,9 +68,14 @@ export const driverApi = {
       .then((r) => r.data);
   },
 
-  setOnline: (isOnline: boolean) =>
+  setOnline: (isOnline: boolean, coords?: { lat: number; lng: number } | null) =>
     api
-      .patch<DriverProfile>("/driver/status", { is_online: isOnline })
+      .patch<DriverProfile>("/driver/status", {
+        is_online: isOnline,
+        // Send the current position so the driver appears on the live map the
+        // moment they go online (not only after the first streamed GPS fix).
+        ...(isOnline && coords ? { lat: coords.lat, lng: coords.lng } : {}),
+      })
       .then((r) => r.data),
 
   statsToday: () =>
