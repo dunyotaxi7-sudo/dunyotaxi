@@ -497,3 +497,38 @@ class AuditLogPublic(ORMModel):
     new_value: dict | None = None
     ip_address: str | None = None
     created_at: datetime | None = None
+
+
+# ── Broadcast (admin → drivers/passengers push) ───────────────────────
+
+
+class BroadcastIn(BaseModel):
+    """An admin push broadcast. `audience` picks the recipients; `driver_ids`
+    narrows it to specific drivers when audience is 'selected'."""
+    title: str = Field(..., min_length=1, max_length=100)
+    body: str = Field(..., min_length=1, max_length=300)
+    audience: str = Field(default="drivers_approved")
+    driver_ids: list[uuid.UUID] | None = None
+    # Count the reach without sending anything.
+    dry_run: bool = False
+
+    @field_validator("audience")
+    @classmethod
+    def _known_audience(cls, v: str) -> str:
+        allowed = {
+            "drivers_all", "drivers_approved", "drivers_online",
+            "passengers", "selected",
+        }
+        if v not in allowed:
+            raise ValueError(f"audience must be one of {sorted(allowed)}")
+        return v
+
+
+class BroadcastResult(BaseModel):
+    audience: str
+    dry_run: bool
+    users_total: int
+    users_with_token: int
+    tokens: int
+    sent: int
+    failed: int

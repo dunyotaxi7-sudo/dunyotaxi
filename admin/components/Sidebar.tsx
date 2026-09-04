@@ -26,6 +26,7 @@ const NAV: NavItem[] = [
   { href: "/pricing", label: "Narxlar", icon: "pricing", requires: "finance" },
   { href: "/commission", label: "Komissiya", icon: "commission", requires: "finance" },
   { href: "/bonus", label: "Bonus va promo", icon: "bonus" },
+  { href: "/broadcast", label: "Haydovchilarga xabar", icon: "live", adminOnly: true },
   { href: "/operators", label: "Operatorlar", icon: "passengers", adminOnly: true },
   { href: "/stats", label: "Statistika", icon: "stats" },
   { href: "/audit", label: "Audit jurnali", icon: "audit" },

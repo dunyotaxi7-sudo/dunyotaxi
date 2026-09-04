@@ -86,3 +86,86 @@ async def _prune_invalid(
         err = (receipt or {}).get("details", {}).get("error")
         if err == "DeviceNotRegistered":
             await remove_token(r, user_id, token)
+
+
+def _chunks(items: list, size: int) -> list[list]:
+    return [items[i:i + size] for i in range(0, len(items), size)]
+
+
+async def send_bulk(
+    r: redis.Redis,
+    user_ids: list[str],
+    title: str,
+    body: str,
+    data: dict | None = None,
+) -> dict:
+    """Push the same message to many users at once (admin broadcast).
+
+    Returns a report so the operator can see the real reach: how many of the
+    targeted users actually have a device registered, and how many messages
+    Expo accepted. Never raises — a broadcast must not 500 the request.
+    """
+    token_owner: dict[str, str] = {}
+    for uid in user_ids:
+        for t in await get_tokens(r, uid):
+            if _looks_like_expo_token(t):
+                token_owner[t] = uid
+
+    tokens = list(token_owner)
+    report = {
+        "users_total": len(user_ids),
+        "users_with_token": len(set(token_owner.values())),
+        "tokens": len(tokens),
+        "sent": 0,
+        "failed": 0,
+    }
+    if not tokens:
+        return report
+
+    # Expo accepts at most 100 messages per request.
+    for chunk in _chunks(tokens, 100):
+        messages = [
+            {
+                "to": t,
+                "title": title,
+                "body": body,
+                "sound": "default",
+                "data": data or {},
+                "priority": "high",
+                "channelId": "default",
+            }
+            for t in chunk
+        ]
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(
+                    EXPO_PUSH_URL,
+                    json=messages,
+                    headers={"Content-Type": "application/json"},
+                )
+            payload = resp.json() if resp.status_code == 200 else {}
+            tickets = payload.get("data") or []
+            for tok, ticket in zip(chunk, tickets):
+                if ticket.get("status") == "ok":
+                    report["sent"] += 1
+                else:
+                    report["failed"] += 1
+                    # Expo tells us when a device is gone; drop those tokens.
+                    if (ticket.get("details") or {}).get("error") == "DeviceNotRegistered":
+                        await remove_token(r, token_owner[tok], tok)
+            if len(tickets) < len(chunk):
+                report["failed"] += len(chunk) - len(tickets)
+        except Exception:  # noqa: BLE001
+            log.exception("broadcast chunk failed (%d tokens)", len(chunk))
+            report["failed"] += len(chunk)
+
+    return report
+
+
+async def count_registered(r: redis.Redis, user_ids: list[str]) -> int:
+    """How many of these users have at least one usable device token."""
+    n = 0
+    for uid in user_ids:
+        if any(_looks_like_expo_token(t) for t in await get_tokens(r, uid)):
+            n += 1
+    return n

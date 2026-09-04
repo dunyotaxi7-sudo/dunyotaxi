@@ -30,6 +30,7 @@ from app.services import auth as auth_service
 from app.services import location
 from app.services import matching
 from app.services import pricing
+from app.services import push
 from app.services import ride as ride_service
 
 
@@ -940,3 +941,74 @@ async def driver_transactions(
         }
         for tx, from_addr, to_addr, commission_pct, ride_amount in rows
     ]
+
+
+async def broadcast_audience_user_ids(
+    db: AsyncSession, r: redis.Redis, audience: str,
+    driver_ids: list[uuid.UUID] | None = None,
+) -> list[str]:
+    """Resolve a broadcast audience to the user ids that should receive it.
+
+    Blocked accounts are always excluded — a blocked driver should not be
+    nudged to come back online.
+    """
+    if audience == "passengers":
+        stmt = select(User.id).where(
+            User.role == "passenger", User.is_blocked.is_(False)
+        )
+        rows = await db.execute(stmt)
+        return [str(x) for x in rows.scalars()]
+
+    stmt = (
+        select(User.id)
+        .join(Driver, Driver.user_id == User.id)
+        .where(User.is_blocked.is_(False))
+    )
+    if audience == "drivers_approved":
+        stmt = stmt.where(Driver.status == "approved")
+    elif audience == "drivers_online":
+        # `is_online` is the DB flag; it can be stale, but for a broadcast that
+        # is the right side to err on — better to reach a driver than skip one.
+        stmt = stmt.where(Driver.status == "approved", Driver.is_online.is_(True))
+    elif audience == "selected":
+        if not driver_ids:
+            return []
+        stmt = stmt.where(Driver.id.in_(driver_ids))
+    # "drivers_all" adds no extra filter.
+
+    rows = await db.execute(stmt)
+    return [str(x) for x in rows.scalars()]
+
+
+async def send_broadcast(
+    db: AsyncSession, r: redis.Redis, admin_id: uuid.UUID, payload,
+    ip: str | None = None,
+) -> dict:
+    """Resolve the audience and push to it. `dry_run` only reports the reach."""
+    user_ids = await broadcast_audience_user_ids(
+        db, r, payload.audience, payload.driver_ids
+    )
+    if payload.dry_run:
+        with_token = await push.count_registered(r, user_ids)
+        return {
+            "audience": payload.audience, "dry_run": True,
+            "users_total": len(user_ids), "users_with_token": with_token,
+            "tokens": 0, "sent": 0, "failed": 0,
+        }
+
+    report = await push.send_bulk(
+        r, user_ids, payload.title, payload.body,
+        data={"type": "admin_broadcast"},
+    )
+    await log_action(
+        db, admin_id, "broadcast_push", entity_type="notification",
+        new_value={
+            "audience": payload.audience,
+            "title": payload.title,
+            "body": payload.body,
+            **report,
+        },
+        ip_address=ip,
+    )
+    await db.commit()
+    return {"audience": payload.audience, "dry_run": False, **report}

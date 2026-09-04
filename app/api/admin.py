@@ -40,6 +40,8 @@ from app.models import (
     User,
 )
 from app.schemas.admin import (
+    BroadcastIn,
+    BroadcastResult,
     AdminDriverCreate,
     AdminDriverProfileUpdate,
     AdminDriverRow,
@@ -965,3 +967,25 @@ async def set_operator_password(
         entity_id=str(operator_id), ip_address=client_ip(request),
     )
     await db.commit()
+
+
+# ── Broadcast push ────────────────────────────────────────────────────
+
+
+@router.post("/notifications/broadcast", response_model=BroadcastResult)
+async def broadcast_push(
+    payload: BroadcastIn,
+    request: Request,
+    admin: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+    r: redis.Redis = Depends(get_redis_dep),
+):
+    """Send one push message to a whole audience (drivers or passengers).
+
+    Set `dry_run` to count the reach without sending. Admin-only: this messages
+    real people, so operators do not get it.
+    """
+    result = await admin_service.send_broadcast(
+        db, r, admin.id, payload, client_ip(request)
+    )
+    return BroadcastResult(**result)

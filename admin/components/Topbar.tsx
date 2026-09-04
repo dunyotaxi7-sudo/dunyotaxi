@@ -18,6 +18,9 @@ const TITLES: Record<string, string> = {
   "/bonus": "Bonus va promo",
   "/stats": "Statistika",
   "/audit": "Audit jurnali",
+  "/dispatch": "Buyurtmalar",
+  "/broadcast": "Haydovchilarga xabar",
+  "/operators": "Operatorlar",
 };
 
 function titleFor(pathname: string): string {

@@ -8,6 +8,8 @@ import type {
   AuditLog,
   CreateOrderInput,
   BonusCampaign,
+  BroadcastInput,
+  BroadcastResult,
   CommissionConfig,
   CreateDriverInput,
   CreatePassengerInput,
@@ -309,5 +311,13 @@ export const auditApi = {
   list: (limit = 100) =>
     api
       .get<AuditLog[]>("/admin/audit-logs", { params: { limit } })
+      .then((r) => r.data),
+};
+
+// ── Broadcast push ────────────────────────────────────────────────────
+export const broadcastApi = {
+  send: (body: BroadcastInput) =>
+    api
+      .post<BroadcastResult>("/admin/notifications/broadcast", body)
       .then((r) => r.data),
 };

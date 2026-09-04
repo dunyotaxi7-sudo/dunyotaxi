@@ -428,3 +428,28 @@ export interface AuditLog {
   ip_address: string | null;
   created_at: string | null;
 }
+
+export type BroadcastAudience =
+  | "drivers_all"
+  | "drivers_approved"
+  | "drivers_online"
+  | "passengers"
+  | "selected";
+
+export interface BroadcastInput {
+  title: string;
+  body: string;
+  audience: BroadcastAudience;
+  driver_ids?: string[] | null;
+  dry_run?: boolean;
+}
+
+export interface BroadcastResult {
+  audience: BroadcastAudience;
+  dry_run: boolean;
+  users_total: number;
+  users_with_token: number;
+  tokens: number;
+  sent: number;
+  failed: number;
+}
