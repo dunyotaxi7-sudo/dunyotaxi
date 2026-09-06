@@ -234,6 +234,7 @@ export default function PricingPage() {
           <p className="text-xs text-muted mb-4">
             Saqlashdan oldin, tahrirlash paytida qayta hisoblanadi.
           </p>
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-muted border-b">
@@ -256,6 +257,7 @@ export default function PricingPage() {
               ))}
             </tbody>
           </table>
+          </div>
           <p className="mt-4 text-xs text-muted">
             Kechki oraliq: {form.night_start || "—"} → {form.night_end || "—"}
           </p>

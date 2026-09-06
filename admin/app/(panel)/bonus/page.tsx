@@ -114,6 +114,7 @@ function BonusTab() {
         <EmptyState message="Hali bonus kampaniyalari yo'q." />
       ) : (
         <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-muted border-b bg-gray-50/60">
@@ -140,6 +141,7 @@ function BonusTab() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
@@ -221,6 +223,7 @@ function PromoTab() {
         <EmptyState message="Hali promo kodlar yo'q." />
       ) : (
         <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-muted border-b bg-gray-50/60">
@@ -247,6 +250,7 @@ function PromoTab() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

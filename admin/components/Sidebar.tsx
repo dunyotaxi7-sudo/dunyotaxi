@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 import { Icon, type IconName } from "@/components/icons";
 import { useAuth } from "@/lib/auth-store";
+import { useUI } from "@/lib/ui-store";
 import type { OperatorPermissions } from "@/lib/types";
 
 type NavItem = {
@@ -36,6 +38,21 @@ export function Sidebar() {
   const pathname = usePathname();
   const user = useAuth((s) => s.user);
   const isAdmin = user?.role === "admin";
+  const navOpen = useUI((s) => s.navOpen);
+  const closeNav = useUI((s) => s.closeNav);
+
+  // Navigating on a phone should dismiss the drawer.
+  useEffect(() => closeNav(), [pathname, closeNav]);
+
+  // Lock body scroll while the drawer covers the page.
+  useEffect(() => {
+    if (!navOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [navOpen]);
 
   const nav = NAV.filter((item) => {
     if (item.adminOnly && !isAdmin) return false;
@@ -47,7 +64,21 @@ export function Sidebar() {
   });
 
   return (
-    <aside className="w-64 shrink-0 border-r border-border bg-surface flex flex-col h-screen sticky top-0">
+    <>
+      {/* Backdrop — only on small screens, only while the drawer is open. */}
+      <div
+        onClick={closeNav}
+        aria-hidden
+        className={`fixed inset-0 z-30 bg-black/40 lg:hidden transition-opacity ${
+          navOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+      />
+      <aside
+        className={`w-64 shrink-0 border-r border-border bg-surface flex flex-col
+          fixed inset-y-0 left-0 z-40 transition-transform duration-200
+          lg:static lg:h-screen lg:sticky lg:top-0 lg:translate-x-0
+          ${navOpen ? "translate-x-0" : "-translate-x-full"}`}
+      >
       {/* Brand */}
       <div className="h-16 flex items-center gap-2.5 px-5 border-b border-border">
         <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-sm">
@@ -90,6 +121,7 @@ export function Sidebar() {
       <div className="px-5 py-3 text-[11px] text-muted border-t border-border">
         v1.0 · Buxoro viloyati
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

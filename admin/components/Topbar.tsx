@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-store";
+import { useUI } from "@/lib/ui-store";
 import { formatPhone } from "@/lib/format";
 import { Icon } from "@/components/icons";
 
@@ -36,6 +37,7 @@ export function Topbar() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const toggleNav = useUI((s) => s.toggleNav);
 
   function handleLogout() {
     logout();
@@ -46,9 +48,20 @@ export function Topbar() {
   const initial = name.charAt(0).toUpperCase();
 
   return (
-    <header className="h-16 shrink-0 border-b border-border bg-surface/80 backdrop-blur flex items-center justify-between px-6 sticky top-0 z-10">
-      <h1 className="text-[17px] font-semibold tracking-tight">{titleFor(pathname)}</h1>
-      <div className="flex items-center gap-3">
+    <header className="h-16 shrink-0 border-b border-border bg-surface/80 backdrop-blur flex items-center justify-between gap-2 px-4 sm:px-6 sticky top-0 z-20">
+      <div className="flex items-center gap-2 min-w-0">
+        <button
+          onClick={toggleNav}
+          className="btn btn-ghost !px-2 lg:hidden"
+          aria-label="Menyu"
+        >
+          <Icon name="menu" size={20} />
+        </button>
+        <h1 className="text-[15px] sm:text-[17px] font-semibold tracking-tight truncate">
+          {titleFor(pathname)}
+        </h1>
+      </div>
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         <div className="flex items-center gap-2.5 pr-1">
           <div className="h-9 w-9 rounded-full bg-[var(--primary-soft)] text-primary flex items-center justify-center text-sm font-semibold">
             {initial}

@@ -113,7 +113,7 @@ export default function CommissionPage() {
         {/* Per-driver override */}
         <div className="card p-6 space-y-3">
           <h3 className="font-semibold">Haydovchi bo'yicha alohida belgilash</h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="col-span-2">
               <label className="label">Haydovchi</label>
               <select className="input" value={ovrDriver} onChange={(e) => setOvrDriver(e.target.value)}>
