@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import redis.asyncio as redis
 from fastapi import (
@@ -104,6 +104,18 @@ from app.services import service_area
 router = APIRouter(
     prefix="/admin", tags=["admin"], dependencies=[Depends(require_staff)]
 )
+
+
+def _naive_utc(dt: datetime | None) -> datetime | None:
+    """Drop the tzinfo from a client-supplied datetime, converting to UTC first.
+
+    Ride timestamps are stored as naive UTC, so binding a tz-aware value
+    against them raises in the DB driver. The admin panel sends ISO strings
+    ending in "Z", which parse as aware — normalise them here, at the boundary.
+    """
+    if dt is None or dt.tzinfo is None:
+        return dt
+    return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 # ── Driver management ─────────────────────────────────────────────────
@@ -434,7 +446,8 @@ async def list_rides(
     limit: int = 100,
 ):
     rows = await admin_service.list_rides(
-        db, status=status_filter, date_from=date_from, date_to=date_to,
+        db, status=status_filter,
+        date_from=_naive_utc(date_from), date_to=_naive_utc(date_to),
         limit=max(1, min(limit, 500)),
     )
     return [AdminRideRow(**r) for r in rows]
@@ -855,7 +868,9 @@ async def stats(
     date_from: datetime | None = None,
     date_to: datetime | None = None,
 ):
-    data = await admin_service.get_stats(db, r, date_from, date_to)
+    data = await admin_service.get_stats(
+        db, r, _naive_utc(date_from), _naive_utc(date_to)
+    )
     return StatsResponse(**data)
 
 
