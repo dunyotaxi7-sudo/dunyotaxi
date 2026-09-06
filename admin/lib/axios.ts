@@ -82,6 +82,9 @@ export function apiError(err: unknown): string {
     const detail = err.response?.data?.detail;
     if (typeof detail === "string") return detail;
     if (Array.isArray(detail) && detail[0]?.msg) return detail[0].msg;
+    // Some endpoints return a structured detail; show its message if present.
+    if (detail && typeof detail === "object" && typeof detail.detail === "string")
+      return detail.detail;
     return err.message;
   }
   return "Unexpected error";

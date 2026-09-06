@@ -1004,3 +1004,33 @@ async def broadcast_push(
         db, r, admin.id, payload, client_ip(request)
     )
     return BroadcastResult(**result)
+
+
+@router.delete("/drivers/{driver_id}", response_model=dict)
+async def delete_driver(
+    driver_id: uuid.UUID,
+    request: Request,
+    admin: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+    r: redis.Redis = Depends(get_redis_dep),
+):
+    """Permanently delete a driver and free their phone number.
+
+    Refused for drivers with ride history: those rides and commission rows are
+    financial records that a passenger's history also points at. Block such an
+    account instead. Admin-only, and audited with a snapshot of what was removed.
+    """
+    try:
+        removed = await admin_service.delete_driver(
+            db, r, admin.id, driver_id, client_ip(request)
+        )
+    except admin_service.DriverDeleteBlocked as e:
+        # A string detail: the admin panel surfaces `detail` verbatim.
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Bu haydovchida {e.rides} ta sayohat tarixi bor, shuning uchun "
+            f"o'chirib bo'lmaydi. Uning o'rniga hisobni bloklang.",
+        )
+    except ValueError as e:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
+    return {"deleted": True, **removed}

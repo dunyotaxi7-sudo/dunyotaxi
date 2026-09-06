@@ -6,20 +6,25 @@ from datetime import datetime, timedelta
 
 import json
 
+import logging
+
 import redis.asyncio as redis
 from geoalchemy2 import Geometry
 from shapely.geometry import mapping, shape
-from sqlalchemy import case, cast, func, select, text
+from sqlalchemy import case, cast, delete as sa_delete, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from app.core.config import settings
 from app.models import (
     AdminAuditLog,
+    BonusAchievement,
     Driver,
     DriverCommission,
     DriverDocument,
+    Notification,
     Payment,
+    PromoUsage,
     Rating,
     Ride,
     User,
@@ -32,6 +37,9 @@ from app.services import matching
 from app.services import pricing
 from app.services import push
 from app.services import ride as ride_service
+
+
+log = logging.getLogger("admin")
 
 
 async def log_action(
@@ -1012,3 +1020,113 @@ async def send_broadcast(
     )
     await db.commit()
     return {"audience": payload.audience, "dry_run": False, **report}
+
+
+class DriverDeleteBlocked(Exception):
+    """A driver with history cannot be hard-deleted — the caller shows why."""
+
+    def __init__(self, reason: str, rides: int, commissions: int):
+        super().__init__(reason)
+        self.reason = reason
+        self.rides = rides
+        self.commissions = commissions
+
+
+async def delete_driver(
+    db: AsyncSession, r: redis.Redis, admin_id: uuid.UUID, driver_id: uuid.UUID,
+    ip: str | None = None,
+) -> dict:
+    """Permanently remove a driver and their account from the database.
+
+    Only drivers with no ride history can go: their rides and commission rows
+    are shared financial records (a passenger's trip history points at them),
+    so we refuse rather than rewrite the books. Everything the account owns on
+    its own — wallet, notifications, ratings, bonus/promo rows — is removed
+    first, because those foreign keys have no ON DELETE rule. Deleting the user
+    then cascades to the driver row, its documents and its commission config.
+
+    The phone number is freed, so the person can register again from scratch.
+    """
+    driver = await db.get(Driver, driver_id)
+    if driver is None:
+        raise ValueError("driver not found")
+    user_id = driver.user_id
+
+    rides = int(
+        (await db.execute(
+            select(func.count()).select_from(Ride).where(Ride.driver_id == driver_id)
+        )).scalar() or 0
+    )
+    commissions = int(
+        (await db.execute(
+            select(func.count()).select_from(DriverCommission)
+            .where(DriverCommission.driver_id == driver_id)
+        )).scalar() or 0
+    )
+    if rides or commissions:
+        raise DriverDeleteBlocked(
+            "driver has ride history", rides=rides, commissions=commissions,
+        )
+
+    # Rides taken as a passenger from the same account would also block the
+    # delete, and they belong to someone else's history — refuse those too.
+    pax_rides = int(
+        (await db.execute(
+            select(func.count()).select_from(Ride).where(Ride.passenger_id == user_id)
+        )).scalar() or 0
+    )
+    if pax_rides:
+        raise DriverDeleteBlocked(
+            "account has passenger ride history", rides=pax_rides, commissions=0,
+        )
+
+    user = await db.get(User, user_id)
+    snapshot = {
+        "driver_id": str(driver_id),
+        "user_id": str(user_id),
+        "phone": user.phone if user else None,
+        "full_name": user.full_name if user else None,
+        "car_number": driver.car_number,
+        "car_model": driver.car_model,
+        "status": driver.status,
+    }
+
+    # Wallet transactions reference the wallet, so they go before it.
+    wallet_ids = (await db.execute(
+        select(Wallet.id).where(Wallet.user_id == user_id)
+    )).scalars().all()
+    if wallet_ids:
+        await db.execute(
+            sa_delete(WalletTransaction).where(
+                WalletTransaction.wallet_id.in_(wallet_ids)
+            )
+        )
+        await db.execute(sa_delete(Wallet).where(Wallet.user_id == user_id))
+
+    await db.execute(sa_delete(Notification).where(Notification.user_id == user_id))
+    await db.execute(
+        sa_delete(Rating).where(
+            (Rating.from_user_id == user_id) | (Rating.to_user_id == user_id)
+        )
+    )
+    await db.execute(
+        sa_delete(BonusAchievement).where(BonusAchievement.user_id == user_id)
+    )
+    await db.execute(sa_delete(PromoUsage).where(PromoUsage.user_id == user_id))
+
+    # Cascades to drivers, driver_documents and this driver's commission_config.
+    await db.execute(sa_delete(User).where(User.id == user_id))
+
+    # Drop the live-location entry and any push tokens so nothing lingers.
+    try:
+        await location.remove_driver(r, str(driver_id))
+        await r.delete(push.push_tokens_key(str(user_id)))
+    except Exception:  # noqa: BLE001
+        log.exception("redis cleanup failed for deleted driver %s", driver_id)
+
+    await log_action(
+        db, admin_id, "driver_deleted", entity_type="driver",
+        entity_id=str(driver_id), old_value=snapshot, ip_address=ip,
+    )
+    await db.commit()
+    return snapshot

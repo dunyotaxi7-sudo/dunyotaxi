@@ -131,6 +131,9 @@ export const driversApi = {
     api
       .get<DriverTxRow[]>(`/admin/drivers/${driverId}/transactions`)
       .then((r) => r.data),
+  // Hard delete — only allowed for drivers with no ride history (409 otherwise).
+  remove: (driverId: string) =>
+    api.delete(`/admin/drivers/${driverId}`).then((r) => r.data),
   uploadDocument: (driverId: string, docType: string, file: File) => {
     const fd = new FormData();
     fd.append("doc_type", docType);

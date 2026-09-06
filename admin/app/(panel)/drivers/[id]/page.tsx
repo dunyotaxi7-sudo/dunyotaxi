@@ -2,10 +2,11 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { carModelsApi, carTypesApi, driversApi, usersApi } from "@/lib/api";
 import { apiError } from "@/lib/axios";
+import { useAuth } from "@/lib/auth-store";
 import { formatDate, formatSom } from "@/lib/format";
 import type { DriverStatus } from "@/lib/types";
 import { Badge, ErrorBlock, LoadingBlock } from "@/components/ui";
@@ -34,6 +35,8 @@ const REQUIRED_DOCS = [
 export default function DriverDetailPage() {
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
+  const router = useRouter();
+  const isAdmin = useAuth((s) => s.user?.role) === "admin";
 
   // No single-driver endpoint; find within the list.
   const drivers = useQuery({ queryKey: ["drivers", "all"], queryFn: () => driversApi.list() });
@@ -72,6 +75,16 @@ export default function DriverDetailPage() {
 
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
+  // Hard delete. The backend refuses drivers with ride history (409), so the
+  // error message is what the operator sees in that case.
+  const remove = useMutation({
+    mutationFn: () => driversApi.remove(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["drivers"] });
+      router.replace("/drivers");
+    },
+  });
+
   const deposit = useMutation({
     mutationFn: (delta: number) => driversApi.deposit(id, delta, note.trim() || undefined),
     onSuccess: () => {
@@ -268,10 +281,33 @@ export default function DriverDetailPage() {
               }}>
               {block.isPending ? "…" : driver.is_blocked ? "Blokdan chiqarish" : "Hisobni bloklash"}
             </button>
+            {isAdmin && (
+              <button
+                className="btn btn-ghost text-red-600 hover:!bg-red-50"
+                disabled={remove.isPending}
+                onClick={() => {
+                  const phone = driver.phone ?? "";
+                  const typed = window.prompt(
+                    `DIQQAT: bu haydovchi bazadan butunlay o'chiriladi va qaytarib bo'lmaydi.\n` +
+                      `Raqami bo'shaydi — u yana ro'yxatdan o'tishi mumkin.\n\n` +
+                      `Tasdiqlash uchun telefon raqamini yozing:\n${phone}`,
+                  );
+                  if (typed === null) return;
+                  if (typed.replace(/\D/g, "") !== phone.replace(/\D/g, "")) {
+                    window.alert("Raqam mos kelmadi — o'chirilmadi.");
+                    return;
+                  }
+                  remove.mutate();
+                }}
+              >
+                {remove.isPending ? "O'chirilmoqda…" : "O'chirish"}
+              </button>
+            )}
           </div>
         </div>
         )}
         {moderate.isError && <ErrorBlock message={apiError(moderate.error)} />}
+        {remove.isError && <ErrorBlock message={apiError(remove.error)} />}
       </div>
 
       {/* Balance */}
