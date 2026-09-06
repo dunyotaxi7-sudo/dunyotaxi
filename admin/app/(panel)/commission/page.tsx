@@ -61,11 +61,11 @@ export default function CommissionPage() {
         <div className="card p-6 space-y-3">
           <h3 className="font-semibold">Umumiy komissiya</h3>
           <p className="text-sm text-muted">Alohida belgilanmagan barcha haydovchilarga tegishli.</p>
-          <div className="flex items-end gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
             <div>
               <label className="label">Komissiya turi</label>
               <select
-                className="input w-44"
+                className="input"
                 value={globalType}
                 onChange={(e) => setGlobalType(e.target.value as CommType)}
               >
@@ -78,7 +78,7 @@ export default function CommissionPage() {
               <div>
                 <label className="label">Har sayohat uchun (so'm)</label>
                 <input
-                  className="input w-40"
+                  className="input"
                   type="number"
                   step="50"
                   value={globalFixed}
@@ -90,7 +90,7 @@ export default function CommissionPage() {
               <div>
                 <label className="label">Foiz</label>
                 <input
-                  className="input w-32"
+                  className="input"
                   type="number"
                   step="0.5"
                   value={globalPct}
@@ -99,7 +99,7 @@ export default function CommissionPage() {
               </div>
             )}
             <button
-              className="btn btn-primary"
+              className="btn btn-primary sm:col-span-2 justify-self-start"
               disabled={create.isPending}
               onClick={() =>
                 create.mutate(commissionBody(globalType, globalPct, globalFixed))
@@ -114,7 +114,7 @@ export default function CommissionPage() {
         <div className="card p-6 space-y-3">
           <h3 className="font-semibold">Haydovchi bo'yicha alohida belgilash</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className="label">Haydovchi</label>
               <select className="input" value={ovrDriver} onChange={(e) => setOvrDriver(e.target.value)}>
                 <option value="">Haydovchini tanlang…</option>
