@@ -26,7 +26,7 @@ from app.core.database import AsyncSessionLocal
 from app.core.redis_client import get_redis
 from app.models import Driver, Payment, PromoCode, PromoUsage, Ride, Wallet
 from app.services import location, matching, pricing, push, service_area
-from app.services.geo import haversine_km, point_wkt
+from app.services.geo import haversine_km, haversine_m, point_wkt
 from app.websockets.manager import admin_ws, offer_broker, passenger_ws, driver_ws
 
 log = logging.getLogger("ride")
@@ -712,15 +712,50 @@ def _finalize_waiting(ride: Ride) -> None:
         ride.waiting_started_at = None
 
 
+# A very rough GPS fix shouldn't be able to unlock the meter from far away, so
+# the accuracy we're willing to add to the radius is capped.
+_MAX_ACCURACY_SLACK_M = 100.0
+
+
 async def start_waiting(
-    db: AsyncSession, ride_id: uuid.UUID, driver_id: uuid.UUID
+    db: AsyncSession, ride_id: uuid.UUID, driver_id: uuid.UUID,
+    lat: float | None = None, lng: float | None = None,
+    accuracy: float | None = None,
 ) -> Ride:
-    """Driver starts the waiting meter (only at pickup / mid-trip, own ride)."""
+    """Driver starts the waiting meter (only at pickup / mid-trip, own ride).
+
+    At pickup the meter charges the passenger, so the driver has to actually be
+    there: if the app reports a position, it must be within the configured
+    radius of the pickup point. Mid-trip waiting is legitimate anywhere, so it
+    is not checked. A client that sends no position is allowed through — older
+    builds don't send one, and blocking them would break waiting entirely.
+    """
     ride = await _load_ride(db, ride_id)
     if ride.driver_id != driver_id:
         raise RideError("not your ride")
     if ride.status not in ("arrived", "ongoing"):
         raise RideError("waiting is only available after arrival")
+
+    if ride.status == "arrived" and lat is not None and lng is not None:
+        cfg = await pricing.get_active_config(db)
+        radius = float(getattr(cfg, "wait_radius_meters", 200) or 0) if cfg else 0.0
+        if radius > 0:
+            # The pickup is a PostGIS geography, so pull lat/lng out of it.
+            pt = (await db.execute(
+                select(
+                    func.ST_Y(cast(Ride.from_location, Geometry)),
+                    func.ST_X(cast(Ride.from_location, Geometry)),
+                ).where(Ride.id == ride.id)
+            )).first()
+            if pt is not None:
+                slack = min(max(accuracy or 0.0, 0.0), _MAX_ACCURACY_SLACK_M)
+                away = haversine_m(lat, lng, float(pt[0]), float(pt[1]))
+                if away > radius + slack:
+                    raise RideError(
+                        f"too far from pickup: {int(away)}m away, "
+                        f"must be within {int(radius)}m"
+                    )
+
     if ride.waiting_started_at is None:  # idempotent
         ride.waiting_started_at = datetime.now()
         await db.commit()

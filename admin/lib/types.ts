@@ -191,6 +191,7 @@ export interface PricingConfig {
   night_end: string;
   wait_free_minutes: number;
   wait_per_minute: number;
+  wait_radius_meters: number;
   is_active: boolean;
   updated_at: string | null;
 }
@@ -205,6 +206,7 @@ export interface PricingConfigUpdate {
   night_end?: string;
   wait_free_minutes?: number;
   wait_per_minute?: number;
+  wait_radius_meters?: number;
   is_active?: boolean;
 }
 

@@ -77,6 +77,11 @@ class PricingConfig(Base):
     wait_per_minute: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default="1000", default=1000
     )
+    # How close to the pickup the driver must be before the meter can start.
+    # Applies at pickup only — mid-trip waiting is legitimate anywhere.
+    wait_radius_meters: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="200", default=200
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     updated_by: Mapped[uuid.UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("users.id")

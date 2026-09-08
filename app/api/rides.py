@@ -26,6 +26,7 @@ from app.schemas.ride import (
     RideOfferDetails,
     RidePublic,
     RideRequest,
+    WaitStartIn,
 )
 from app.services import matching, pricing, ride as ride_service
 
@@ -151,6 +152,8 @@ async def waiting_rate(db: AsyncSession = Depends(get_db)):
     return {
         "wait_free_minutes": cfg.wait_free_minutes if cfg else 3,
         "wait_per_minute": cfg.wait_per_minute if cfg else 1000,
+        # How close to the pickup the driver must be to start the meter.
+        "wait_radius_meters": getattr(cfg, "wait_radius_meters", 200) if cfg else 200,
     }
 
 
@@ -381,12 +384,20 @@ async def start_ride(
 @router.post("/{ride_id}/wait/start", response_model=RidePublic)
 async def wait_start(
     ride_id: uuid.UUID,
+    payload: WaitStartIn | None = None,
     driver: Driver = Depends(get_current_driver),
     db: AsyncSession = Depends(get_db),
 ):
-    """Driver starts the waiting meter (at pickup or mid-trip)."""
+    """Driver starts the waiting meter (at pickup or mid-trip).
+
+    At pickup the driver must be within the configured radius; the app sends
+    its position for that check. 409 if they are still too far away.
+    """
+    p = payload or WaitStartIn()
     try:
-        ride = await ride_service.start_waiting(db, ride_id, driver.id)
+        ride = await ride_service.start_waiting(
+            db, ride_id, driver.id, lat=p.lat, lng=p.lng, accuracy=p.accuracy
+        )
     except ride_service.RideError as e:
         raise HTTPException(status.HTTP_409_CONFLICT, str(e))
     return RidePublic.model_validate(ride)

@@ -24,6 +24,7 @@ class PricingConfigBase(BaseModel):
     night_end: time
     wait_free_minutes: int = Field(default=3, ge=0)
     wait_per_minute: int = Field(default=1000, ge=0)
+    wait_radius_meters: int = Field(default=200, ge=0, le=5000)
     is_active: bool = True
 
 
@@ -41,6 +42,7 @@ class PricingConfigUpdate(BaseModel):
     night_end: time | None = None
     wait_free_minutes: int | None = Field(default=None, ge=0)
     wait_per_minute: int | None = Field(default=None, ge=0)
+    wait_radius_meters: int | None = Field(default=None, ge=0, le=5000)
     is_active: bool | None = None
 
 
@@ -55,6 +57,7 @@ class PricingConfigPublic(ORMModel):
     night_end: time
     wait_free_minutes: int = 3
     wait_per_minute: int = 1000
+    wait_radius_meters: int = 200
     is_active: bool
     updated_at: datetime | None = None
 

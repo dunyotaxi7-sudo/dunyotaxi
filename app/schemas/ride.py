@@ -142,3 +142,14 @@ class RideDriverView(BaseModel):
     passenger_rating: float | None = None
     waiting_seconds: int = 0
     waiting_started_at: datetime | None = None
+
+
+class WaitStartIn(BaseModel):
+    """Where the driver is when starting the waiting meter.
+
+    Optional so older app builds, which send no body, keep working — the
+    distance check simply doesn't run for them.
+    """
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
+    accuracy: float | None = Field(default=None, ge=0)

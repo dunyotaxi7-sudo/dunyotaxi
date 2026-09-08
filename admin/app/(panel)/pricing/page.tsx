@@ -22,6 +22,7 @@ interface FormState {
   night_end: string;
   wait_free_minutes: string;
   wait_per_minute: string;
+  wait_radius_meters: string;
   is_active: boolean;
 }
 
@@ -43,6 +44,7 @@ function toForm(cfg: PricingConfig): FormState {
     night_end: hhmm(cfg.night_end),
     wait_free_minutes: String(cfg.wait_free_minutes ?? 3),
     wait_per_minute: String(cfg.wait_per_minute ?? 1000),
+    wait_radius_meters: String(cfg.wait_radius_meters ?? 200),
     is_active: cfg.is_active,
   };
 }
@@ -116,6 +118,7 @@ export default function PricingPage() {
       night_end: form.night_end,
       wait_free_minutes: Math.round(num(form.wait_free_minutes)),
       wait_per_minute: Math.round(num(form.wait_per_minute)),
+      wait_radius_meters: Math.round(num(form.wait_radius_meters)),
       is_active: form.is_active,
     });
   };
@@ -194,6 +197,14 @@ export default function PricingPage() {
             hint="Bepul vaqtdan keyin har daqiqa uchun"
             value={form.wait_per_minute}
             onChange={(v) => set("wait_per_minute", v)}
+            type="number"
+            step="50"
+          />
+          <Field
+            label="Kutish radiusi (metr)"
+            hint="Haydovchi mijozga shu masofada bo'lsagina kutishni boshlay oladi"
+            value={form.wait_radius_meters}
+            onChange={(v) => set("wait_radius_meters", v)}
             type="number"
             step="50"
           />
