@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import {
+  Alert,
   Linking,
   Pressable,
   StyleSheet,
@@ -95,8 +96,14 @@ export default function ActiveRideScreen() {
   }
 
   async function cancel() {
-    await ridesApi.cancel(rideId, "passenger_cancelled").catch(() => {});
-    router.replace("/");
+    try {
+      await ridesApi.cancel(rideId, "passenger_cancelled");
+      router.replace("/");
+    } catch {
+      // Cancel failed (network/server) — keep the user on the ride so they can
+      // retry rather than dropping them home thinking it was cancelled.
+      Alert.alert(t.ride.cancelFailed);
+    }
   }
 
   return (

@@ -123,6 +123,7 @@ export const t = {
     } as Partial<Record<RideStatus, string>>,
     driverLoading: "Haydovchi ma'lumoti yuklanmoqda…",
     payment: "To'lov",
+    cancelFailed: "Buyurtmani bekor qilib bo'lmadi. Qaytadan urinib ko'ring.",
   },
 
   rating: {
@@ -290,6 +291,10 @@ export const t = {
       decline: "Buyurtmani rad etish",
       declineConfirmTitle: "Buyurtmani rad etasizmi?",
       declineConfirmBody: "Buyurtma boshqa haydovchiga yuboriladi.",
+      waitTooFar: (away: number, radius: number) =>
+        `Kutish hisoblagichi mijozdan ${radius} m ichida yoqiladi. Hozir ${away} m uzoqdasiz.`,
+      waitNoLocation: "Joylashuv aniqlanmadi — kutishni boshlab bo'lmaydi.",
+      waitFailed: "Kutishni boshlab bo'lmadi. Mijozga yaqinroq boring.",
     },
     trip: {
       title: "Sayohat",
@@ -346,6 +351,7 @@ export const t = {
       wallet: "Hamyon",
       history: "Tarix",
       profile: "Profil",
+      orders: "Buyurtmalar",
     },
     profile: {
       title: "Profil",

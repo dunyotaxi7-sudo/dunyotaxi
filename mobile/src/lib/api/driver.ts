@@ -131,8 +131,17 @@ export const driverApi = {
     api.post(`/rides/${rideId}/claim`).then((r) => r.data),
 
   // Waiting meter (at pickup or mid-trip).
-  waitStart: (rideId: string) =>
-    api.post(`/rides/${rideId}/wait/start`).then((r) => r.data),
+  // Position is sent so the server can check the driver is actually at the
+  // pickup before the (passenger-charged) meter starts.
+  waitStart: (
+    rideId: string,
+    at?: { lat: number; lng: number; accuracy?: number | null } | null,
+  ) =>
+    api
+      .post(`/rides/${rideId}/wait/start`, at ? {
+        lat: at.lat, lng: at.lng, accuracy: at.accuracy ?? undefined,
+      } : {})
+      .then((r) => r.data),
   waitStop: (rideId: string) =>
     api.post(`/rides/${rideId}/wait/stop`).then((r) => r.data),
 

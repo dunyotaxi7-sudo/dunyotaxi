@@ -8,21 +8,13 @@ import {
   View,
 } from "react-native";
 import { ridesApi } from "@/lib/api/rides";
-import { formatSom } from "@/lib/format";
+import { formatSom, parseServerUtcMs } from "@/lib/format";
 import { colors, radius, spacing } from "@/theme/colors";
 
 function mmss(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-}
-
-// The backend sends timestamps as naive UTC (no tz suffix). A phone in UTC+5
-// would otherwise parse them as local time and the meter would jump ~5h ahead
-// the instant it starts. Treat a tz-less string as UTC.
-function parseServerUtcMs(s: string): number {
-  const hasTz = /[zZ]$|[+-]\d\d:?\d\d$/.test(s);
-  return new Date(hasTz ? s : s + "Z").getTime();
 }
 
 /**
@@ -37,11 +29,15 @@ export function WaitingMeter({
   waitingStartedAt,
   onToggle,
   pending,
+  blockedReason,
 }: {
   waitingSeconds: number;
   waitingStartedAt: string | null;
   onToggle?: () => void;
   pending?: boolean;
+  // When set, the meter can't be started yet — shown in place of the hint.
+  // Stopping a running meter is never blocked.
+  blockedReason?: string | null;
 }) {
   const rate = useQuery({
     queryKey: ["waiting-rate"],
@@ -70,6 +66,9 @@ export function WaitingMeter({
   const billableMin = Math.max(0, Math.ceil(total / 60) - free);
   const charge = billableMin * perMin;
 
+  // Only starting is gated; a running meter must always be stoppable.
+  const blocked = Boolean(onToggle && !active && blockedReason);
+
   // Passenger view: don't show anything until there's something to show.
   if (!onToggle && !active && total === 0) return null;
 
@@ -94,11 +93,18 @@ export function WaitingMeter({
       <Text style={styles.hint}>
         Birinchi {free} daqiqa bepul · keyin {formatSom(perMin)}/daqiqa
       </Text>
+      {onToggle && blocked && (
+        <Text style={styles.blocked}>{blockedReason}</Text>
+      )}
       {onToggle && (
         <Pressable
-          style={[styles.btn, active ? styles.stop : styles.start]}
+          style={[
+            styles.btn,
+            active ? styles.stop : styles.start,
+            blocked && styles.btnDisabled,
+          ]}
           onPress={onToggle}
-          disabled={pending}
+          disabled={pending || blocked}
         >
           {pending ? (
             <ActivityIndicator color={active ? colors.danger : "#fff"} />
@@ -123,6 +129,8 @@ const styles = StyleSheet.create({
     gap: spacing(2),
   },
   cardActive: { borderColor: colors.primary, backgroundColor: "#eef4ff" },
+  btnDisabled: { opacity: 0.45 },
+  blocked: { fontSize: 12, color: colors.danger, fontWeight: "600" },
   row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   label: { fontSize: 12, color: colors.muted },
   timer: { fontSize: 28, fontWeight: "800", color: colors.text, fontVariant: ["tabular-nums"] },

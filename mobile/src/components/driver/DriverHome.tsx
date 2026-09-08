@@ -25,11 +25,9 @@ import {
   startBackgroundLocation,
   stopBackgroundLocation,
 } from "@/lib/backgroundLocation";
-import { registerForPush } from "@/lib/push";
 import { bgLocationConsent } from "@/lib/storage";
 import { RideOfferModal } from "@/components/driver/RideOfferModal";
 import { BackgroundLocationDisclosure } from "@/components/driver/BackgroundLocationDisclosure";
-import { AvailableOrdersList } from "@/components/driver/AvailableOrdersList";
 import { formatSom } from "@/lib/format";
 import { t } from "@/lib/strings";
 import type { DriverProfile } from "@/lib/types";
@@ -94,10 +92,8 @@ export function DriverHome({ driver }: { driver: DriverProfile }) {
   // check after a push wakeup; GPS is streamed by the background task.
   const { connected, offer, clearOffer, setOfferExternal } = useDriverSocket(online);
 
-  // Register this device for push (offer wakeups) once.
-  useEffect(() => {
-    void registerForPush();
-  }, []);
+  // Push registration + notification routing is owned by <PushManager/>,
+  // mounted in the driver layout.
 
   // Start/stop background GPS streaming with the online state. Never start
   // without prior consent to the disclosure — even if the server says the
@@ -171,6 +167,18 @@ export function DriverHome({ driver }: { driver: DriverProfile }) {
     queryKey: ["driver-wallet"],
     queryFn: () => driverApi.wallet(),
     refetchInterval: 20000,
+  });
+  // Live count for the "Buyurtmalar" badge. Shares the ["available-orders"]
+  // cache with the Orders page, so opening it shows the same list instantly.
+  const orderCount = useQuery({
+    queryKey: ["available-orders"],
+    queryFn: () =>
+      location.coords
+        ? driverApi.availableOrders(location.coords.lat, location.coords.lng)
+        : Promise.resolve([]),
+    enabled: online && !!location.coords,
+    refetchInterval: 8000,
+    select: (d) => d.length,
   });
 
   const toggle = useMutation({
@@ -286,12 +294,18 @@ export function DriverHome({ driver }: { driver: DriverProfile }) {
         <Ionicons name="locate" size={20} color={colors.primary} />
       </Pressable>
 
-      {/* Available orders board (list dispatch) + online/offline toggle */}
+      {/* Orders entry (opens the full-screen board) + online/offline toggle */}
       <View style={[styles.bottom, { paddingBottom: insets.bottom + spacing(4) }]}>
         {online ? (
-          <View style={{ marginBottom: spacing(3) }}>
-            <AvailableOrdersList coords={location.coords} />
-          </View>
+          <Pressable style={styles.ordersBtn} onPress={() => router.push("/orders")}>
+            <Ionicons name="list" size={20} color={colors.primary} />
+            <Text style={styles.ordersText}>{t.driver.menu.orders}</Text>
+            {orderCount.data ? (
+              <View style={styles.ordersBadge}>
+                <Text style={styles.ordersBadgeText}>{orderCount.data}</Text>
+              </View>
+            ) : null}
+          </Pressable>
         ) : null}
         <Pressable
           onPress={onToggle}
@@ -426,4 +440,32 @@ const styles = StyleSheet.create({
   toggleOffline: { backgroundColor: colors.primary },
   toggleOnline: { backgroundColor: colors.danger },
   toggleText: { color: "#fff", fontSize: 17, fontWeight: "700" },
+  ordersBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing(2),
+    height: 54,
+    borderRadius: radius.lg,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing(3),
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
+  ordersText: { color: colors.text, fontSize: 16, fontWeight: "700" },
+  ordersBadge: {
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    paddingHorizontal: spacing(2),
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ordersBadgeText: { color: "#fff", fontSize: 13, fontWeight: "800" },
 });

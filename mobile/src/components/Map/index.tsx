@@ -25,7 +25,7 @@ import {
 } from "./types";
 
 export type { Coords, MapMarker, MapProps, MapCamera, MarkerKind } from "./types";
-export { BUKHARA_CENTER, DEFAULT_ZOOM } from "./types";
+export { BUKHARA_CENTER, DEFAULT_ZOOM, distanceM } from "./types";
 export { useCurrentLocation } from "./useCurrentLocation";
 export type { CurrentLocation, PermissionState } from "./useCurrentLocation";
 export {

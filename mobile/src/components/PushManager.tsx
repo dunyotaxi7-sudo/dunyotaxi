@@ -1,8 +1,19 @@
+import { useQueryClient } from "@tanstack/react-query";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import { parseRideData, registerForPush } from "@/lib/push";
+
+// A new-order push (sent to drivers when an order lands on the board) carries
+// { type: "new_order" }. Tapping it should open the order board.
+function isNewOrder(data: unknown): boolean {
+  return (
+    !!data &&
+    typeof data === "object" &&
+    (data as { type?: string }).type === "new_order"
+  );
+}
 
 // Remote push was removed from Expo Go in SDK 53 — calling the notifications
 // APIs there throws. This app needs a development build; in Expo Go we simply
@@ -22,9 +33,15 @@ export function PushManager() {
 
 function PushManagerInner() {
   const router = useRouter();
+  const qc = useQueryClient();
   const handledColdStart = useRef(false);
 
   function routeTo(data: unknown) {
+    // Driver tapped a new-order notification → open the board.
+    if (isNewOrder(data)) {
+      router.push("/orders");
+      return;
+    }
     const ride = parseRideData(data);
     if (!ride) return;
     const { ride_id, status } = ride;
@@ -50,6 +67,17 @@ function PushManagerInner() {
     return () => sub.remove();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // A new-order push arriving while the app is open: refresh the board/badge
+  // now instead of waiting for the next poll.
+  useEffect(() => {
+    const sub = Notifications.addNotificationReceivedListener((notif) => {
+      if (isNewOrder(notif.request.content.data)) {
+        void qc.invalidateQueries({ queryKey: ["available-orders"] });
+      }
+    });
+    return () => sub.remove();
+  }, [qc]);
 
   // Cold start: app opened by tapping a notification.
   const lastResponse = Notifications.useLastNotificationResponse();

@@ -5,11 +5,13 @@ import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "rea
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Map,
+  distanceM,
   type MapHandle,
   type MapMarker,
   useCurrentLocation,
   useRoutePoints,
 } from "@/components/Map";
+import { ridesApi } from "@/lib/api/rides";
 import { driverApi } from "@/lib/api/driver";
 import { Button } from "@/components/ui/Button";
 import { WaitingMeter } from "@/components/WaitingMeter";
@@ -22,7 +24,9 @@ export default function DriverPickupScreen() {
   const insets = useSafeAreaInsets();
   const { rideId } = useLocalSearchParams<{ rideId: string }>();
   const mapRef = useRef<MapHandle>(null);
-  const location = useCurrentLocation();
+  // Watched: the distance to the pickup drives whether the waiting meter
+  // can be started, so it has to update as the driver approaches.
+  const location = useCurrentLocation(true, true);
 
   const view = useQuery({
     queryKey: ["driver-ride", rideId],
@@ -64,12 +68,39 @@ export default function DriverPickupScreen() {
     mutationFn: () => driverApi.declineRide(rideId),
     onSuccess: () => router.replace("/"),
   });
+  // The waiting meter charges the passenger, so it only unlocks near the
+  // pickup. The server enforces this too; here it's for a clear UI.
+  const rate = useQuery({
+    queryKey: ["waiting-rate"],
+    queryFn: () => ridesApi.waitingRate(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const waitRadius = rate.data?.wait_radius_meters ?? 200;
+  const metersToPickup =
+    location.coords && ride
+      ? distanceM(location.coords, { lat: ride.from_lat, lng: ride.from_lng })
+      : null;
+  // A rough fix shouldn't lock out a driver who really is there.
+  const slack = Math.min(Math.max(location.accuracy ?? 0, 0), 100);
+  const waitBlockedReason =
+    metersToPickup === null
+      ? t.driver.pickup.waitNoLocation
+      : metersToPickup > waitRadius + slack
+        ? t.driver.pickup.waitTooFar(Math.round(metersToPickup), waitRadius)
+        : null;
+
   const waitToggle = useMutation({
     mutationFn: () =>
       ride?.waiting_started_at
         ? driverApi.waitStop(rideId)
-        : driverApi.waitStart(rideId),
+        : driverApi.waitStart(
+            rideId,
+            location.coords
+              ? { ...location.coords, accuracy: location.accuracy }
+              : null,
+          ),
     onSuccess: () => view.refetch(),
+    onError: () => Alert.alert(t.driver.pickup.waitFailed),
   });
 
   function confirmDecline() {
@@ -181,6 +212,7 @@ export default function DriverPickupScreen() {
                 waitingStartedAt={ride.waiting_started_at}
                 onToggle={() => waitToggle.mutate()}
                 pending={waitToggle.isPending}
+                blockedReason={waitBlockedReason}
               />
             </View>
             <Button
