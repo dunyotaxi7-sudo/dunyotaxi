@@ -55,6 +55,18 @@ server {
     add_header X-Frame-Options DENY always;
     add_header Strict-Transport-Security "max-age=31536000" always;
 
+    # In-app "Qo'llanma" button. The app ships this URL hardcoded and has no
+    # over-the-air updates, so pointing it straight at Telegram would make every
+    # link change a Play Store release. Redirecting here instead means the
+    # destination is ours to change: edit the target below, then
+    # `docker compose restart nginx` (a restart, not `nginx -s reload` — envsubst
+    # only re-renders this template at container start). Live in seconds.
+    # 302 (not 301) — a permanent redirect would be cached by clients forever
+    # and survive the change we're keeping the freedom to make.
+    location = /qollanma {
+        return 302 https://t.me/dunyotaxi_uz/2;
+    }
+
     location / {
         proxy_pass http://api:8000;
         proxy_http_version 1.1;

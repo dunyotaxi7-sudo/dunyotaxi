@@ -9,6 +9,7 @@ import { apiError } from "@/lib/api/client";
 import { Button } from "@/components/ui/Button";
 import { confirmLogout } from "@/lib/confirmLogout";
 import { formatPhone } from "@/lib/format";
+import { openGuide } from "@/lib/nav";
 import { t } from "@/lib/strings";
 import { useAuth } from "@/store/auth";
 import { colors, radius, spacing } from "@/theme/colors";
@@ -88,6 +89,12 @@ export default function ProfileScreen() {
           <Text style={styles.value}>{formatPhone(user?.phone)}</Text>
         </View>
 
+        {/* Guide — a Telegram post, so it can be updated without a release */}
+        <Pressable style={[styles.valueRow, styles.linkRow]} onPress={openGuide}>
+          <Text style={styles.value}>{t.profile.guide}</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+        </Pressable>
+
         <View style={{ flex: 1 }} />
         <Button
           title={t.profile.logout}
@@ -132,6 +139,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   value: { fontSize: 16, color: colors.text },
+  linkRow: { marginTop: spacing(6) },
   editLink: { fontSize: 14, color: colors.primary, fontWeight: "500" },
   input: {
     borderWidth: 1,

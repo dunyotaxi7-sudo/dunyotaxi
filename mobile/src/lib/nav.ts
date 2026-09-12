@@ -29,3 +29,18 @@ export async function openExternalNav(lat: number, lng: number) {
 export function callPhone(phone: string) {
   Linking.openURL(`tel:${phone}`).catch(() => {});
 }
+
+// The in-app guide lives in a Telegram post rather than a bundled screen: the
+// app ships no over-the-air updates, so help text hardcoded here would need a
+// store release every time it changed.
+//
+// Deliberately our own URL rather than the t.me link itself — nginx 302s this
+// to Telegram (deploy/nginx/app.conf.template). That one hop is what keeps this
+// constant from ever needing to change: repointing the guide at a different
+// post, a video, or a help page is a server edit, not a store release.
+const GUIDE_URL = "https://api.dunyotaxi.uz/qollanma";
+
+/** Open the user guide ("Qo'llanma") — currently a Telegram post. */
+export function openGuide() {
+  Linking.openURL(GUIDE_URL).catch(() => {});
+}

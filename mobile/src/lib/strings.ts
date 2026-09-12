@@ -143,6 +143,7 @@ export const t = {
     name: "Ism",
     phone: "Telefon",
     edit: "O'zgartirish",
+    guide: "Qo'llanma",
     logout: "Chiqish",
     logoutConfirmTitle: "Hisobdan chiqasizmi?",
     logoutConfirmBody:

@@ -10,6 +10,7 @@ import { driverApi } from "@/lib/api/driver";
 import { Button } from "@/components/ui/Button";
 import { confirmLogout } from "@/lib/confirmLogout";
 import { formatPhone } from "@/lib/format";
+import { openGuide } from "@/lib/nav";
 import { t } from "@/lib/strings";
 import { useAuth } from "@/store/auth";
 import { colors, radius, spacing } from "@/theme/colors";
@@ -116,6 +117,12 @@ export default function DriverProfileScreen() {
           </>
         ) : null}
 
+        {/* Guide — a Telegram post, so it can be updated without a release */}
+        <Pressable style={[styles.valueRow, styles.linkRow]} onPress={openGuide}>
+          <Text style={styles.value}>{t.profile.guide}</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+        </Pressable>
+
         <Button
           title={t.profile.logout}
           variant="ghost"
@@ -125,7 +132,7 @@ export default function DriverProfileScreen() {
               router.replace("/");
             })
           }
-          style={{ marginTop: spacing(8) }}
+          style={{ marginTop: spacing(4) }}
         />
       </ScrollView>
     </SafeAreaView>
@@ -184,6 +191,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   value: { fontSize: 16, color: colors.text },
+  linkRow: { marginTop: spacing(6) },
   editLink: { fontSize: 14, color: colors.primary, fontWeight: "500" },
   input: {
     borderWidth: 1,
