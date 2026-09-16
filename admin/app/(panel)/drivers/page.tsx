@@ -2,10 +2,11 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { carTypesApi, driversApi, usersApi } from "@/lib/api";
 import { apiError } from "@/lib/axios";
 import { formatNumber, formatPhone, formatSom } from "@/lib/format";
+import { matchesDriverSearch } from "@/lib/driverSearch";
 import { driverStatusLabel } from "@/lib/strings";
 import type { DriverPublic, DriverStatus } from "@/lib/types";
 import { Badge, EmptyState, ErrorBlock, LoadingBlock } from "@/components/ui";
@@ -41,20 +42,6 @@ const STATUS_ORDER: Record<DriverStatus, number> = {
   suspended: 2,
   rejected: 3,
 };
-
-const norm = (s: string | null | undefined) => (s ?? "").toLowerCase().replace(/\s+/g, "");
-const digits = (s: string | null | undefined) => (s ?? "").replace(/\D/g, "");
-
-function matchesSearch(d: DriverPublic, q: string): boolean {
-  if (!q) return true;
-  const nq = norm(q);
-  const dq = digits(q);
-  if (norm(d.full_name).includes(nq)) return true;
-  if (norm(d.car_number).includes(nq)) return true;
-  if (norm(d.car_model).includes(nq)) return true;
-  if (dq.length >= 3 && digits(d.phone).includes(dq)) return true;
-  return false;
-}
 
 function compare(a: DriverPublic, b: DriverPublic, key: SortKey): number {
   switch (key) {
@@ -104,8 +91,12 @@ export default function DriversPage() {
     refetchInterval: 30000,
   });
   const carTypes = useQuery({ queryKey: ["car-types"], queryFn: () => carTypesApi.list() });
-  const classLabel = (code: string) =>
-    carTypes.data?.find((t) => t.code === code)?.name_uz ?? code;
+  // Stable identity so the memos below can depend on it honestly.
+  const classLabel = useCallback(
+    (code: string) =>
+      carTypes.data?.find((t) => t.code === code)?.name_uz ?? code,
+    [carTypes.data],
+  );
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -139,7 +130,7 @@ export default function DriversPage() {
   const visible = useMemo(() => {
     const q = search.trim();
     const rows = all.filter((d) => {
-      if (!matchesSearch(d, q)) return false;
+      if (!matchesDriverSearch(d, q, classLabel)) return false;
       if (status !== "all" && d.status !== status) return false;
       if (online === "online" && !d.is_online) return false;
       if (online === "offline" && d.is_online) return false;
@@ -153,7 +144,7 @@ export default function DriversPage() {
     });
     const dir = sortDir === "asc" ? 1 : -1;
     return [...rows].sort((a, b) => compare(a, b, sortKey) * dir || (a.full_name ?? "").localeCompare(b.full_name ?? ""));
-  }, [all, search, status, online, carClass, balance, blocked, sortKey, sortDir]);
+  }, [all, search, status, online, carClass, balance, blocked, sortKey, sortDir, classLabel]);
 
   // Quick numbers across the whole fleet (not just the filtered view).
   const stats = useMemo(() => ({
@@ -167,8 +158,7 @@ export default function DriversPage() {
   const classOptions = useMemo(() => {
     const codes = Array.from(new Set(all.map((d) => d.car_class)));
     return codes.sort().map((c) => ({ code: c, label: classLabel(c) }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [all, carTypes.data]);
+  }, [all, classLabel]);
 
   // ── Selection + bulk actions ─────────────────────────────────────────
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -277,7 +267,7 @@ export default function DriversPage() {
         <div className="flex flex-wrap items-center gap-2">
           <input
             className="input flex-1 min-w-[220px]"
-            placeholder="Qidirish: ism, telefon, davlat raqami, model…"
+            placeholder="Qidirish: ism, telefon, davlat raqami, tarif, model…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />

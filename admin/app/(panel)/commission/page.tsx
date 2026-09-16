@@ -1,10 +1,11 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-import { commissionApi, driversApi } from "@/lib/api";
+import { useCallback, useMemo, useState } from "react";
+import { carTypesApi, commissionApi, driversApi } from "@/lib/api";
 import { apiError } from "@/lib/axios";
 import { formatDate } from "@/lib/format";
+import { DriverPicker } from "@/components/DriverPicker";
 import { Badge, ErrorBlock, LoadingBlock } from "@/components/ui";
 
 type CommType = "percent" | "fixed" | "combined";
@@ -13,6 +14,12 @@ export default function CommissionPage() {
   const qc = useQueryClient();
   const configs = useQuery({ queryKey: ["commission"], queryFn: () => commissionApi.list() });
   const drivers = useQuery({ queryKey: ["drivers", "all"], queryFn: () => driversApi.list() });
+  const carTypes = useQuery({ queryKey: ["car-types"], queryFn: () => carTypesApi.list() });
+  const classLabel = useCallback(
+    (code: string) =>
+      carTypes.data?.find((t) => t.code === code)?.name_uz ?? code,
+    [carTypes.data],
+  );
 
   // driver_id → label (car number)
   const driverLabel = useMemo(() => {
@@ -116,12 +123,13 @@ export default function CommissionPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="sm:col-span-2">
               <label className="label">Haydovchi</label>
-              <select className="input" value={ovrDriver} onChange={(e) => setOvrDriver(e.target.value)}>
-                <option value="">Haydovchini tanlang…</option>
-                {drivers.data?.map((d) => (
-                  <option key={d.id} value={d.id}>{d.car_model} · {d.car_number}</option>
-                ))}
-              </select>
+              <DriverPicker
+                drivers={drivers.data ?? []}
+                value={ovrDriver}
+                onChange={setOvrDriver}
+                loading={drivers.isLoading}
+                classLabel={classLabel}
+              />
             </div>
             <div>
               <label className="label">Komissiya turi</label>

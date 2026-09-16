@@ -2,12 +2,13 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { driversApi, ordersApi, passengersApi } from "@/lib/api";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { carTypesApi, driversApi, ordersApi, passengersApi } from "@/lib/api";
 import { apiError } from "@/lib/axios";
 import { formatPhone, formatSom } from "@/lib/format";
 import { rideStatusLabel } from "@/lib/strings";
 import type { ConnectMode } from "@/lib/types";
+import { DriverPicker } from "@/components/DriverPicker";
 import { OrderLocationPicker, type Loc } from "@/components/OrderLocationPicker";
 import { ErrorBlock } from "@/components/ui";
 
@@ -38,15 +39,23 @@ export default function OrdersPage() {
   const [driverId, setDriverId] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Approved drivers for the dropdown (online first).
+  // Approved drivers for the picker (it sorts online-first itself).
   const drivers = useQuery({
     queryKey: ["drivers", "approved"],
     queryFn: () => driversApi.list("approved"),
   });
-  const driverOptions = useMemo(() => {
-    const list = drivers.data ?? [];
-    return [...list].sort((a, b) => Number(b.is_online) - Number(a.is_online));
-  }, [drivers.data]);
+  const driverOptions = useMemo(() => drivers.data ?? [], [drivers.data]);
+
+  // Tariff names, so the picker can be searched by "biznes"/"komfort" too.
+  const carTypes = useQuery({
+    queryKey: ["car-types"],
+    queryFn: () => carTypesApi.list(),
+  });
+  const classLabel = useCallback(
+    (code: string) =>
+      carTypes.data?.find((t) => t.code === code)?.name_uz ?? code,
+    [carTypes.data],
+  );
 
   // Client picker — search existing clients by name/phone (debounced).
   const [selected, setSelected] = useState<SelectedClient | null>(null);
@@ -195,20 +204,13 @@ export default function OrdersPage() {
         {mode !== "auto" && (
           <div>
             <label className="label">Haydovchi</label>
-            <select
-              className="input"
+            <DriverPicker
+              drivers={driverOptions}
               value={driverId}
-              onChange={(e) => setDriverId(e.target.value)}
-            >
-              <option value="">— Haydovchini tanlang —</option>
-              {driverOptions.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.car_model} · {d.car_number} ·{" "}
-                  {d.is_online ? "onlayn" : "oflayn"} · ★{" "}
-                  {Number(d.rating).toFixed(1)}
-                </option>
-              ))}
-            </select>
+              onChange={setDriverId}
+              loading={drivers.isLoading}
+              classLabel={classLabel}
+            />
             {mode === "offer" && (
               <p className="text-xs text-muted mt-1">
                 Faqat onlayn haydovchi taklifni oladi.
