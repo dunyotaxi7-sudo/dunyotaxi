@@ -1,9 +1,69 @@
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 import { API_URL } from "./config";
-import { tokenStorage } from "./storage";
+import { memoToken, tokenStorage } from "./storage";
 
 export const DRIVER_LOCATION_TASK = "driver-location-task";
+
+function postFix(token: string, lat: number, lng: number): Promise<Response> {
+  return fetch(`${API_URL}/driver/location`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ lat, lng }),
+  });
+}
+
+// One in-flight refresh at a time — fixes arrive every ~5s and would otherwise
+// each kick off their own. After a failure, back off before trying again rather
+// than hammering /auth/refresh twelve times a minute.
+const REFRESH_BACKOFF_MS = 60_000;
+let refreshing: Promise<string | null> | null = null;
+let refreshFailedAt = 0;
+
+/**
+ * Swap the refresh token for a new access token, from inside the task.
+ *
+ * The task runs in its own headless JS context, so the axios client's refresh
+ * interceptor and its in-memory token are out of reach here. /auth/refresh is
+ * stateless and does not invalidate the old refresh token, so this racing with
+ * the main app's own refresh is harmless — both end up with a valid pair.
+ */
+async function refreshAccess(): Promise<string | null> {
+  if (Date.now() - refreshFailedAt < REFRESH_BACKOFF_MS) return null;
+  refreshing =
+    refreshing ??
+    (async () => {
+      try {
+        const { refresh } = await tokenStorage.get();
+        if (!refresh) return null;
+        const res = await fetch(`${API_URL}/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: refresh }),
+        });
+        if (!res.ok) {
+          // Refresh expired or the driver was blocked. Nothing to do from a
+          // background task; the app signs them out next time it is opened.
+          refreshFailedAt = Date.now();
+          return null;
+        }
+        const data = await res.json();
+        await tokenStorage.set(data.access_token, data.refresh_token);
+        memoToken.set(data.access_token);
+        refreshFailedAt = 0;
+        return data.access_token as string;
+      } catch {
+        refreshFailedAt = Date.now();
+        return null;
+      } finally {
+        refreshing = null;
+      }
+    })();
+  return refreshing;
+}
 
 // Defined at module import so the OS can invoke it even after the app is
 // backgrounded. Sends the latest fix to the backend over HTTP (a WebSocket
@@ -19,18 +79,18 @@ TaskManager.defineTask(DRIVER_LOCATION_TASK, async ({ data, error }) => {
   const { access } = await tokenStorage.get();
   if (!access) return;
 
+  const { latitude: lat, longitude: lng } = loc.coords;
   try {
-    await fetch(`${API_URL}/driver/location`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${access}`,
-      },
-      body: JSON.stringify({
-        lat: loc.coords.latitude,
-        lng: loc.coords.longitude,
-      }),
-    });
+    const res = await postFix(access, lat, lng);
+    // An access token lasts an hour; a driver's shift is longer. Without this
+    // the expiry silently ended their shift as far as dispatch was concerned —
+    // the app still said "Siz onlaynsiz" and still burned GPS, but every fix
+    // was rejected, the freshness key lapsed, and no order could reach them
+    // until they happened to open the app.
+    if (res.status === 401) {
+      const fresh = await refreshAccess();
+      if (fresh) await postFix(fresh, lat, lng);
+    }
   } catch {
     // best-effort; the next fix will retry
   }
