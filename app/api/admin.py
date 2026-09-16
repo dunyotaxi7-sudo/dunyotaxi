@@ -99,6 +99,7 @@ from app.services import admin as admin_service
 from app.services import operator as operator_service
 from app.services import driver as driver_service
 from app.services import location
+from app.services import ride as ride_service
 from app.services import service_area
 
 router = APIRouter(

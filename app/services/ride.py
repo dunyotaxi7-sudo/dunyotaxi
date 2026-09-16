@@ -378,7 +378,12 @@ async def _driver_user_id(driver_id: str) -> str | None:
     return None
 
 
-async def _offer_to_driver(driver_id: str, ride_id: str, distance_m: float) -> None:
+async def _offer_to_driver(
+    driver_id: str, ride_id: str, distance_m: float, notify: bool = True
+) -> None:
+    """Send a driver an offer card. ``notify=False`` sends the socket event
+    only — used when the driver was just pushed about this same order, so one
+    order never produces two notifications on their phone."""
     user_id = await _driver_user_id(driver_id)
     if user_id is None:
         return
@@ -390,6 +395,8 @@ async def _offer_to_driver(driver_id: str, ride_id: str, distance_m: float) -> N
     }
     # Realtime over the socket (foreground) …
     await driver_ws.send(user_id, payload)
+    if not notify:
+        return
     # … plus a high-priority push to wake a backgrounded app.
     try:
         await push.send_to_user(
@@ -524,9 +531,11 @@ async def _announce_and_fallback(ride_id: str, lat: float, lng: float) -> None:
                 db, r, lat, lng, radii=[settings.broadcast_radius_meters],
                 limit=settings.broadcast_max_drivers, car_classes=eligible,
             )
+        pushed: set[str] = set()
         for c in cands:
             user_id = await _driver_user_id(c.driver_id)
             if user_id:
+                pushed.add(c.driver_id)
                 try:
                     await push.send_to_user(
                         r, user_id, "Yangi buyurtma!",
@@ -538,7 +547,19 @@ async def _announce_and_fallback(ride_id: str, lat: float, lng: float) -> None:
 
         if settings.list_fallback_seconds <= 0:
             return
-        await asyncio.sleep(settings.list_fallback_seconds)
+
+        # While the board window runs, also offer the order the broadcast way
+        # (socket "ride_offer" + /driver/pending-offer). Driver builds older
+        # than the order board have no board to poll — the offer card is the
+        # only surface on which they can see the order at all, so a push
+        # without it just wakes a phone that then shows nothing. Unlike
+        # _dispatch_loop this never cancels the ride: the board owns the ride
+        # for the whole window, and the fallback below still runs if the
+        # window expires unclaimed.
+        deadline = asyncio.get_running_loop().time() + settings.list_fallback_seconds
+        if await _offer_rounds(ride_id, lat, lng, deadline, pushed):
+            return
+
         async with AsyncSessionLocal() as db:
             ride = await db.get(Ride, uuid.UUID(ride_id))
             if ride is None or ride.status != "searching":
@@ -555,6 +576,96 @@ async def _announce_and_fallback(ride_id: str, lat: float, lng: float) -> None:
             await _no_driver_found(ride_id)
     except Exception:  # noqa: BLE001
         log.exception("announce/fallback failed for ride %s", ride_id)
+
+
+async def _offer_rounds(
+    ride_id: str,
+    lat: float,
+    lng: float,
+    deadline: float,
+    pushed: set[str],
+) -> bool:
+    """Offer a board order to nearby drivers as a broadcast offer card, round
+    after round, until someone accepts or ``deadline`` passes.
+
+    Returns True when the ride no longer needs the auto-assign fallback — it
+    was accepted here, claimed from the board, or cancelled. Never cancels the
+    ride itself; that stays with the board window's fallback.
+
+    ``pushed`` are the drivers the new-order push already reached, so the first
+    round doesn't notify them twice about the same order.
+    """
+    r = get_redis()
+    loop = asyncio.get_running_loop()
+    rejected: set[str] = set()
+    first_round = True
+    try:
+        while loop.time() < deadline:
+            async with AsyncSessionLocal() as db:
+                ride = await db.get(Ride, uuid.UUID(ride_id))
+                if ride is None or ride.status != "searching":
+                    return True  # claimed from the board, cancelled, or gone
+                eligible = await pricing.eligible_car_classes(db, ride.car_type)
+                # Skip drivers already holding another offer or on a trip.
+                busy = (
+                    set().union(*_current_offer.values())
+                    if _current_offer else set()
+                ) | set(_active_ride_by_driver.keys())
+                candidates = await matching.find_nearest_drivers(
+                    db, r, lat, lng, exclude=rejected | busy,
+                    radii=[settings.broadcast_radius_meters],
+                    limit=settings.broadcast_max_drivers,
+                    car_classes=eligible,
+                )
+
+            if not candidates:
+                # Everyone nearby has passed, or nobody is nearby yet. Give the
+                # ones who let an offer time out another shot — over a 5-minute
+                # window a single missed card shouldn't shut them out — and
+                # wait a beat for a driver to come online.
+                rejected.clear()
+                await asyncio.sleep(min(5.0, max(0.0, deadline - loop.time())))
+                continue
+
+            # Atomic claim (no await before setting _current_offer): drop any
+            # driver another order grabbed since selection.
+            claimed = [
+                (c.driver_id, c.distance_m) for c in candidates
+                if c.driver_id not in _active_ride_by_driver
+                and not any(c.driver_id in s for s in _current_offer.values())
+            ]
+            if not claimed:
+                rejected.update(c.driver_id for c in candidates)
+                continue
+            claimed_ids = {d for d, _ in claimed}
+            _current_offer[ride_id] = claimed_ids
+            offer_broker.open(ride_id, claimed_ids)
+
+            for d, dm in claimed:
+                await _offer_to_driver(
+                    d, ride_id, dm, notify=not (first_round and d in pushed)
+                )
+            first_round = False
+
+            timeout = min(
+                float(settings.driver_accept_timeout_seconds),
+                max(1.0, deadline - loop.time()),
+            )
+            winner = await offer_broker.wait(ride_id, timeout)
+            offered = _current_offer.pop(ride_id, set())
+            if winner:
+                await _assign_driver(ride_id, winner)
+                await _revoke_offers(offered - {winner}, ride_id)
+                return True
+            # Nobody took it this round: close their cards and look again.
+            await _revoke_offers(offered, ride_id)
+            rejected |= offered
+        return False
+    except Exception:  # noqa: BLE001
+        log.exception("offer rounds failed for ride %s", ride_id)
+        return False
+    finally:
+        _current_offer.pop(ride_id, None)
 
 
 async def force_assign(ride_id: str, driver_id: str) -> bool:
