@@ -28,6 +28,7 @@ from app.api.deps import (
     require_staff,
 )
 from app.core.database import get_db
+from app.core.timezone import today_uz
 from app.models import (
     BonusCampaign,
     CarModel,
@@ -722,7 +723,7 @@ async def create_commission(
     # time. Close the previously-open config for this scope so they stop piling
     # up — otherwise the trigger has many overlapping rows to choose from and a
     # new rate never reliably takes effect.
-    new_from = data.get("valid_from") or date.today()
+    new_from = data.get("valid_from") or today_uz()
     scope = (
         CommissionConfig.driver_id.is_(None)
         if data.get("driver_id") is None

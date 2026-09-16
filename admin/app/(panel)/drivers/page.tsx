@@ -7,6 +7,7 @@ import { carTypesApi, driversApi, usersApi } from "@/lib/api";
 import { apiError } from "@/lib/axios";
 import { formatNumber, formatPhone, formatSom } from "@/lib/format";
 import { matchesDriverSearch } from "@/lib/driverSearch";
+import { uzToday } from "@/lib/time";
 import { driverStatusLabel } from "@/lib/strings";
 import type { DriverPublic, DriverStatus } from "@/lib/types";
 import { Badge, EmptyState, ErrorBlock, LoadingBlock } from "@/components/ui";
@@ -245,7 +246,7 @@ export default function DriversPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `haydovchilar-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `haydovchilar-${uzToday()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }

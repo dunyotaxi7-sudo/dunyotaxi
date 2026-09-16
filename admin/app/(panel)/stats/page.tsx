@@ -16,6 +16,7 @@ import {
 import { statsApi } from "@/lib/api";
 import { apiError } from "@/lib/axios";
 import { formatDay, formatNumber, formatSom } from "@/lib/format";
+import { uzDayEndIso, uzDayStartIso } from "@/lib/time";
 import { ErrorBlock, LoadingBlock, StatCard } from "@/components/ui";
 
 export default function StatsPage() {
@@ -23,8 +24,8 @@ export default function StatsPage() {
   const [to, setTo] = useState("");
 
   const params = {
-    date_from: from ? new Date(from).toISOString() : undefined,
-    date_to: to ? new Date(to + "T23:59:59").toISOString() : undefined,
+    date_from: from ? uzDayStartIso(from) : undefined,
+    date_to: to ? uzDayEndIso(to) : undefined,
   };
 
   const overview = useQuery({

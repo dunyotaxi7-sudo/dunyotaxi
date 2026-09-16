@@ -1,4 +1,7 @@
 // Display formatters. Money is integer so'm; grouped with spaces per the spec.
+// Dates render in Tashkent time — see lib/time for why that has to be explicit.
+
+import { parseServerTime, uzParts } from "./time";
 
 export function formatSom(amount: number | null | undefined): string {
   if (amount == null) return "—";
@@ -24,21 +27,19 @@ const UZ_MONTHS = [
   "Iyl", "Avg", "Sen", "Okt", "Noy", "Dek",
 ];
 
+/** "16 Sen 2026, 16:05" — always Tashkent time, whatever zone the viewer is in. */
 export function formatDate(value: string | null | undefined): string {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  const day = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${day} ${UZ_MONTHS[d.getMonth()]} ${d.getFullYear()}, ${hh}:${mm}`;
+  const p = uzParts(parseServerTime(value));
+  if (!p) return "—";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(p.day)} ${UZ_MONTHS[p.month - 1]} ${p.year}, ${pad(p.hour)}:${pad(p.minute)}`;
 }
 
+/** "16 Sen" — day and month only, in Tashkent. */
 export function formatDay(value: string | null | undefined): string {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return `${String(d.getDate()).padStart(2, "0")} ${UZ_MONTHS[d.getMonth()]}`;
+  const p = uzParts(parseServerTime(value));
+  if (!p) return "—";
+  return `${String(p.day).padStart(2, "0")} ${UZ_MONTHS[p.month - 1]}`;
 }
 
 export function formatKm(value: string | number | null | undefined): string {

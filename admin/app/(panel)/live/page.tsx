@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { ridesApi } from "@/lib/api";
 import { apiError } from "@/lib/axios";
 import { formatPhone, formatSom } from "@/lib/format";
+import { parseServerTime } from "@/lib/time";
 import { rideStatusLabel } from "@/lib/strings";
 import type { LiveRideRow, RideStatus } from "@/lib/types";
 import { useAdminEvents } from "@/lib/useAdminEvents";
@@ -22,7 +23,7 @@ const TONE: Record<RideStatus, "amber" | "blue" | "green" | "gray" | "red"> = {
 
 function elapsed(from: string | null, now: number): string {
   if (!from) return "—";
-  const secs = Math.max(0, Math.floor((now - new Date(from).getTime()) / 1000));
+  const secs = Math.max(0, Math.floor((now - parseServerTime(from)) / 1000));
   const m = Math.floor(secs / 60);
   const s = secs % 60;
   return `${m}:${String(s).padStart(2, "0")}`;

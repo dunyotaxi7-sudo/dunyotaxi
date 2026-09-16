@@ -1,12 +1,13 @@
 """Read-only finance queries for the driver app: earnings, wallet, history."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.timezone import day_start_utc, local_day
 from app.models import (
     BonusAchievement,
     BonusCampaign,
@@ -19,8 +20,8 @@ from app.models import (
 
 
 def _day_start(days_ago: int = 0) -> datetime:
-    d = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    return d - timedelta(days=days_ago)
+    """Midnight in Tashkent — the day the driver is actually living in."""
+    return day_start_utc(days_ago)
 
 
 async def earnings(db: AsyncSession, driver: Driver, daily_days: int = 14) -> dict:
@@ -36,7 +37,7 @@ async def earnings(db: AsyncSession, driver: Driver, daily_days: int = 14) -> di
     week = await _sum_since(_day_start(6))
     month = await _sum_since(_day_start(29))
 
-    day = func.date_trunc("day", DriverCommission.created_at)
+    day = local_day(DriverCommission.created_at)
     rows = await db.execute(
         select(day.label("day"), func.sum(DriverCommission.driver_earning).label("earning"))
         .where(

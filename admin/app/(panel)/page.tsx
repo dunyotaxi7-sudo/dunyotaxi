@@ -13,14 +13,14 @@ import {
 import { statsApi } from "@/lib/api";
 import { apiError } from "@/lib/axios";
 import { formatDay, formatNumber, formatSom } from "@/lib/format";
+import { uzStartOfDaysAgo } from "@/lib/time";
 import { ErrorBlock, Skeleton, StatCard } from "@/components/ui";
 
+// Windows run from midnight in Tashkent — the operator's day, not the
+// browser's and not the server's UTC.
 function startOf(period: "day" | "week" | "month"): string {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  if (period === "week") d.setDate(d.getDate() - 6);
-  if (period === "month") d.setDate(d.getDate() - 29);
-  return d.toISOString();
+  const back = period === "week" ? 6 : period === "month" ? 29 : 0;
+  return new Date(uzStartOfDaysAgo(back)).toISOString();
 }
 
 export default function DashboardPage() {

@@ -6,6 +6,7 @@ import { useState } from "react";
 import { ridesApi } from "@/lib/api";
 import { apiError } from "@/lib/axios";
 import { formatDate, formatKm, formatSom } from "@/lib/format";
+import { uzDayEndIso, uzDayStartIso } from "@/lib/time";
 import type { RideStatus } from "@/lib/types";
 import { Badge, EmptyState, ErrorBlock, LoadingBlock } from "@/components/ui";
 import { rideStatusLabel } from "@/lib/strings";
@@ -38,8 +39,8 @@ export default function RidesPage() {
     queryFn: () =>
       ridesApi.list({
         status: status === "all" ? undefined : status,
-        date_from: from ? new Date(from).toISOString() : undefined,
-        date_to: to ? new Date(to + "T23:59:59").toISOString() : undefined,
+        date_from: from ? uzDayStartIso(from) : undefined,
+        date_to: to ? uzDayEndIso(to) : undefined,
         limit: 200,
       }),
   });

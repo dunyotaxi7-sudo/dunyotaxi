@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
 from pathlib import Path
 
 import redis.asyncio as redis
@@ -22,6 +21,7 @@ from pydantic import BaseModel
 
 from app.api.deps import get_current_driver, get_current_user, get_redis_dep
 from app.core.database import get_db
+from app.core.timezone import day_start_utc
 from app.models import CarModel, Driver, DriverCommission, DriverDocument, Ride, User
 from app.schemas.driver import (
     AvailableOrder,
@@ -164,7 +164,7 @@ async def today_stats(
     db: AsyncSession = Depends(get_db),
 ):
     """Completed rides + net earnings for the driver since midnight."""
-    start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    start = day_start_utc()  # midnight in Tashkent, not in the container's UTC
 
     rides_completed = int((await db.execute(
         select(func.count()).select_from(Ride).where(

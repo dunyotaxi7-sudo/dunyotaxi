@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { passengersApi, usersApi } from "@/lib/api";
 import { apiError } from "@/lib/axios";
 import { formatDate, formatNumber, formatPhone } from "@/lib/format";
+import { parseServerTime, uzStartOfDay, uzToday } from "@/lib/time";
 import type { PassengerRow } from "@/lib/types";
 import { Badge, EmptyState, ErrorBlock, LoadingBlock } from "@/components/ui";
 
@@ -30,11 +31,8 @@ function matchesSearch(p: PassengerRow, q: string): boolean {
   return false;
 }
 
-// Server timestamps are naive UTC; treat a tz-less string as UTC.
 function toMs(s: string | null | undefined): number {
-  if (!s) return 0;
-  const hasTz = /[zZ]$|[+-]\d\d:?\d\d$/.test(s);
-  const t = new Date(hasTz ? s : s + "Z").getTime();
+  const t = parseServerTime(s);
   return Number.isNaN(t) ? 0 : t;
 }
 
@@ -104,7 +102,7 @@ export default function PassengersPage() {
     const now = Date.now();
     const day = 86_400_000;
     const since =
-      joined === "today" ? new Date().setHours(0, 0, 0, 0)
+      joined === "today" ? uzStartOfDay()
       : joined === "7d" ? now - 7 * day
       : joined === "30d" ? now - 30 * day
       : 0;
@@ -201,7 +199,7 @@ export default function PassengersPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `yolovchilar-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `yolovchilar-${uzToday()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }

@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from app.core.config import settings
+from app.core.timezone import local_day
 from app.models import (
     AdminAuditLog,
     BonusAchievement,
@@ -439,7 +440,7 @@ async def rides_daily(db: AsyncSession, days: int) -> list[dict]:
     """Rides-per-day time series for the last ``days`` days (for the dashboard
     chart). Returns one row per day that has activity, oldest first."""
     since = datetime.now() - timedelta(days=days)
-    day = func.date_trunc("day", Ride.created_at)
+    day = local_day(Ride.created_at)
     completed_flag = case((Ride.status == "completed", 1), else_=0)
     revenue = case((Ride.status == "completed", Ride.price_sum), else_=0)
 
