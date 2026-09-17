@@ -27,6 +27,7 @@ export default function MapPage() {
     () =>
       (drivers.data ?? []).map((d) => ({
         id: d.driver_id,
+        kind: "driver" as const,
         position: { lat: d.lat, lng: d.lng },
         title: d.car_model ?? "Haydovchi",
         subtitle: d.car_number ?? undefined,

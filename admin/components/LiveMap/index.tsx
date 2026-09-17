@@ -5,10 +5,10 @@
 // implementation detail decided in this file only.
 
 import dynamic from "next/dynamic";
-import type { LiveMapProps, MapMarker, MapPoint } from "./types";
+import type { LiveMapProps, MapMarker, MapPoint, MarkerKind } from "./types";
 import { BUKHARA_CENTER } from "./types";
 
-export type { LiveMapProps, MapMarker, MapPoint };
+export type { LiveMapProps, MapMarker, MapPoint, MarkerKind };
 export { BUKHARA_CENTER };
 
 // Load the provider implementation client-side only (it touches `window`).

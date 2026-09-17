@@ -29,8 +29,8 @@ export default function RideDetailPage() {
   const active = !["completed", "cancelled"].includes(r.status);
 
   const markers: MapMarker[] = [
-    { id: "from", position: { lat: r.from_lat, lng: r.from_lng }, title: "Qabul qilish nuqtasi", subtitle: r.from_address },
-    { id: "to", position: { lat: r.to_lat, lng: r.to_lng }, title: "Manzil", subtitle: r.to_address },
+    { id: "from", kind: "pickup", position: { lat: r.from_lat, lng: r.from_lng }, title: "Qabul qilish nuqtasi", subtitle: r.from_address },
+    { id: "to", kind: "dropoff", position: { lat: r.to_lat, lng: r.to_lng }, title: "Manzil", subtitle: r.to_address },
   ];
   const center = { lat: (r.from_lat + r.to_lat) / 2, lng: (r.from_lng + r.to_lng) / 2 };
 

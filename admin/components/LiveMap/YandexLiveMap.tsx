@@ -14,7 +14,7 @@ import {
   type YMapInstance,
   type YMaps3,
 } from "@/lib/yandex";
-import type { LiveMapProps, MapMarker, MapPoint } from "./types";
+import type { LiveMapProps, MapMarker, MapPoint, MarkerKind } from "./types";
 
 const BRAND = "#2563eb";
 
@@ -42,15 +42,23 @@ const CAR_SVG =
   'v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/>' +
   '<circle cx="17" cy="17" r="2"/></svg>';
 
+const PIN_COLOR: Record<MarkerKind, string> = {
+  driver: BRAND,
+  pickup: "#16a34a",
+  dropoff: "#dc2626",
+};
+
 function markerElement(m: MapMarker): HTMLElement {
+  const kind: MarkerKind = m.kind ?? "driver";
+  const isCar = kind === "driver";
+  const size = isCar ? 30 : 16;
   const el = document.createElement("div");
   el.style.cssText =
-    "width:30px;height:30px;border-radius:50%;background:" +
-    BRAND +
-    ";border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);" +
+    `width:${size}px;height:${size}px;border-radius:50%;background:${PIN_COLOR[kind]};` +
+    "border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);" +
     "display:flex;align-items:center;justify-content:center;" +
     "transform:translate(-50%,-50%);cursor:pointer;";
-  el.innerHTML = CAR_SVG;
+  if (isCar) el.innerHTML = CAR_SVG;
   el.title = m.title ?? "";
   return el;
 }

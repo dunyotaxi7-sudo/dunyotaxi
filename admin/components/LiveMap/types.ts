@@ -6,12 +6,16 @@ export interface MapPoint {
   lng: number;
 }
 
+/** What a pin represents — drivers get a car, trip endpoints get dots. */
+export type MarkerKind = "driver" | "pickup" | "dropoff";
+
 export interface MapMarker {
   id: string;
   position: MapPoint;
   title?: string;
   subtitle?: string;
   status?: string;
+  kind?: MarkerKind;
 }
 
 export interface LiveMapProps {
