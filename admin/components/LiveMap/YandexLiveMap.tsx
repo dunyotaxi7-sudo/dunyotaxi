@@ -33,13 +33,24 @@ function toRing(points: MapPoint[]): LngLat[] {
   return ring;
 }
 
+// The same car glyph the sidebar uses, so a driver reads the same everywhere.
+const CAR_SVG =
+  '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" ' +
+  'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+  '<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10' +
+  's-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12' +
+  'v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/>' +
+  '<circle cx="17" cy="17" r="2"/></svg>';
+
 function markerElement(m: MapMarker): HTMLElement {
   const el = document.createElement("div");
   el.style.cssText =
-    "width:22px;height:22px;border-radius:50%;background:" +
+    "width:30px;height:30px;border-radius:50%;background:" +
     BRAND +
-    ";border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);" +
+    ";border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);" +
+    "display:flex;align-items:center;justify-content:center;" +
     "transform:translate(-50%,-50%);cursor:pointer;";
+  el.innerHTML = CAR_SVG;
   el.title = m.title ?? "";
   return el;
 }
