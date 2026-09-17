@@ -143,18 +143,27 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string> 
 // Minimal typing for the parts of ymaps3 we use. The full types live in
 // @yandex/ymaps3-types; we keep the surface small instead of adding a dep.
 export type LngLat = [number, number];
+export type YGeometry =
+  | { type: "LineString"; coordinates: LngLat[] }
+  | { type: "Polygon"; coordinates: LngLat[][] };
+export interface YFeatureStyle {
+  stroke?: { color: string; width: number }[];
+  fill?: string;
+  fillOpacity?: number;
+}
 export interface YMaps3 {
   ready: Promise<void>;
   YMap: new (el: HTMLElement, props: { location: { center: LngLat; zoom: number } }) => YMapInstance;
   YMapDefaultSchemeLayer: new (props: Record<string, unknown>) => unknown;
   YMapDefaultFeaturesLayer: new (props: Record<string, unknown>) => unknown;
-  YMapMarker: new (props: { coordinates: LngLat }, el: HTMLElement) => YMapChild & {
-    update: (props: { coordinates: LngLat }) => void;
-  };
+  YMapMarker: new (
+    props: { coordinates: LngLat; onClick?: () => void },
+    el: HTMLElement,
+  ) => YMapChild & { update: (props: { coordinates: LngLat }) => void };
   YMapFeature: new (props: {
-    geometry: { type: "LineString"; coordinates: LngLat[] };
-    style?: { stroke?: { color: string; width: number }[] };
-  }) => YMapChild & { update: (props: { geometry: { type: "LineString"; coordinates: LngLat[] } }) => void };
+    geometry: YGeometry;
+    style?: YFeatureStyle;
+  }) => YMapChild & { update: (props: { geometry: YGeometry }) => void };
   YMapListener: new (props: {
     layer?: string;
     onClick?: (object: unknown, event: { coordinates: LngLat }) => void;
