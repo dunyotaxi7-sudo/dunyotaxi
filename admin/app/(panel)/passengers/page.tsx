@@ -19,6 +19,15 @@ type SortKey = "name" | "rides" | "joined" | "status";
 type SortDir = "asc" | "desc";
 type BulkAction = "block" | "unblock";
 
+// What someone registered as, for the rows that are not plain passengers.
+// They are listed here because they order taxis, not because of their role.
+const ROLE_LABELS: Record<string, string> = {
+  driver: "haydovchi",
+  admin: "admin",
+  operator: "operator",
+};
+const roleLabel = (role: string) => ROLE_LABELS[role] ?? role;
+
 const norm = (s: string | null | undefined) => (s ?? "").toLowerCase().replace(/\s+/g, "");
 const digits = (s: string | null | undefined) => (s ?? "").replace(/\D/g, "");
 
@@ -56,7 +65,7 @@ function toCsv(rows: PassengerRow[]): string {
     return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const lines = rows.map((p) =>
-    [p.full_name, p.phone, p.role === "driver" ? "haydovchi" : "yo'lovchi",
+    [p.full_name, p.phone, p.role === "passenger" ? "yo'lovchi" : roleLabel(p.role),
      p.total_rides, formatDate(p.created_at), p.is_blocked ? "bloklangan" : "faol"]
       .map(esc).join(";"),
   );
@@ -305,10 +314,14 @@ export default function PassengersPage() {
                       <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleOne(p.id)} aria-label="Belgilash" />
                     </td>
                     <td className="px-4 py-3">
-                      {p.role === "driver" ? (
+                      {p.role !== "passenger" ? (
+                        // Registered as something else but orders taxis, so
+                        // they belong here. Their detail page lives elsewhere
+                        // (passenger_detail returns nothing for a non-
+                        // passenger), so the name is deliberately not a link.
                         <span className="flex items-center gap-2">
                           <span className="font-medium">{p.full_name}</span>
-                          <Badge tone="blue">haydovchi</Badge>
+                          <Badge tone="blue">{roleLabel(p.role)}</Badge>
                         </span>
                       ) : (
                         <Link href={`/passengers/${p.id}`} className="font-medium hover:underline">{p.full_name}</Link>

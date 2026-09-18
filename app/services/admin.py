@@ -122,15 +122,22 @@ def phone_search_digits(search: str) -> str | None:
 async def list_passengers(
     db: AsyncSession, search: str | None = None, include_drivers: bool = False
 ) -> list[dict]:
-    """Clients for the panel.
+    """Clients for the panel — anyone who uses the service as a passenger.
 
-    ``include_drivers`` widens the list to driver accounts too. A person holds
-    one role — ``users.phone`` is UNIQUE and ``users.role`` is a single value —
-    so a driver who wants to ride cannot also have a passenger account. Nothing
-    stops a driver *being* a ride's passenger though (``rides.passenger_id`` is
-    a plain user reference), so the operator needs to be able to find them.
-    Off by default: this list doubles as the client registry and its counts
-    should stay meaningful.
+    ``users.role`` records what someone *registered as*, not what they do. The
+    app lets one account use both sides (see mobile _layout.tsx: "One account
+    can be both… not a fixed role"), and the role is fixed at first signup —
+    get_or_create_user returns an existing user unchanged. So a person who
+    first signed up as a driver, or an admin account, orders taxis as a
+    passenger and never changes role.
+
+    Listing on role alone therefore hid real clients: they ordered rides, the
+    trips existed, but they appeared in no client list. So membership is by
+    behaviour — role='passenger', or anyone who has actually ordered a ride.
+
+    ``include_drivers`` additionally lists the whole fleet, including drivers
+    who have never ordered anything. Off by default: this list doubles as the
+    client registry and its counts should mean clients, not clients plus fleet.
     """
     ride_count = (
         select(Ride.passenger_id, func.count().label("cnt"))
@@ -138,10 +145,13 @@ async def list_passengers(
         .subquery()
     )
     roles = ["passenger", "driver"] if include_drivers else ["passenger"]
+    # ride_count counts rides taken *as a passenger*, so a positive count is
+    # the definition of "this person is a client", whatever they registered as.
+    ordered_something = func.coalesce(ride_count.c.cnt, 0) > 0
     stmt = (
         select(User, func.coalesce(ride_count.c.cnt, 0))
         .outerjoin(ride_count, ride_count.c.passenger_id == User.id)
-        .where(User.role.in_(roles))
+        .where(User.role.in_(roles) | ordered_something)
     )
     if search:
         search = search.strip()
