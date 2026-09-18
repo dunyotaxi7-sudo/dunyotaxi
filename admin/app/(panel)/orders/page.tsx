@@ -13,7 +13,12 @@ import { OrderLocationPicker, type Loc } from "@/components/OrderLocationPicker"
 import { RequestLocationPrompt } from "@/components/RequestLocationPrompt";
 import { ErrorBlock } from "@/components/ui";
 
-type SelectedClient = { id: string; full_name: string; phone: string };
+type SelectedClient = {
+  id: string;
+  full_name: string;
+  phone: string;
+  role: string;
+};
 
 const MODES: { value: ConnectMode; label: string; hint: string }[] = [
   {
@@ -66,9 +71,12 @@ export default function OrdersPage() {
     const t = setTimeout(() => setDebounced(clientSearch.trim()), 250);
     return () => clearTimeout(t);
   }, [clientSearch]);
+  // Drivers order taxis too, and nothing stops a driver being a ride's
+  // passenger — so the picker searches them as well, badged so the operator
+  // knows who they are choosing.
   const clientResults = useQuery({
-    queryKey: ["client-search", debounced],
-    queryFn: () => passengersApi.list(debounced),
+    queryKey: ["client-search", debounced, "with-drivers"],
+    queryFn: () => passengersApi.list(debounced, true),
     enabled: !selected && debounced.length >= 2,
   });
 
@@ -106,6 +114,7 @@ export default function OrdersPage() {
               <div className="text-sm font-medium">{selected.full_name}</div>
               <div className="text-xs text-muted">
                 {formatPhone(selected.phone)}
+                {selected.role === "driver" ? " · haydovchi" : ""}
               </div>
             </div>
             <button
@@ -141,6 +150,7 @@ export default function OrdersPage() {
                           id: c.id,
                           full_name: c.full_name,
                           phone: c.phone,
+                          role: c.role,
                         })
                       }
                       className="block w-full text-left px-3 py-2 rounded-md hover:bg-[var(--surface-2)]"
@@ -148,6 +158,7 @@ export default function OrdersPage() {
                       <div className="text-sm font-medium">{c.full_name}</div>
                       <div className="text-xs text-muted">
                         {formatPhone(c.phone)}
+                        {c.role === "driver" ? " · haydovchi" : ""}
                         {c.is_blocked ? " · bloklangan" : ""}
                       </div>
                     </button>

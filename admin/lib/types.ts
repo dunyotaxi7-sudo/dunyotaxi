@@ -351,6 +351,8 @@ export interface PassengerRow {
   id: string;
   full_name: string;
   phone: string;
+  /** "passenger", or "driver" when drivers were requested too. */
+  role: string;
   total_rides: number;
   is_blocked: boolean;
   created_at: string | null;

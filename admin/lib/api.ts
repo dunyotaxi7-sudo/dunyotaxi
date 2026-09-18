@@ -216,10 +216,16 @@ export const locationRequestsApi = {
 
 // ── Passengers ────────────────────────────────────────────────────────
 export const passengersApi = {
-  list: (search?: string) =>
+  // `includeDrivers` widens the list to driver accounts. A person has one role
+  // (phone is unique), but a driver can still be the passenger on a ride, so
+  // the order form needs to be able to find them.
+  list: (search?: string, includeDrivers = false) =>
     api
       .get<PassengerRow[]>("/admin/passengers", {
-        params: search ? { search } : undefined,
+        params: {
+          ...(search ? { search } : {}),
+          ...(includeDrivers ? { include_drivers: true } : {}),
+        },
       })
       .then((r) => r.data),
   create: (body: CreatePassengerInput) =>

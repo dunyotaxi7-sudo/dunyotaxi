@@ -50,13 +50,14 @@ function compare(a: PassengerRow, b: PassengerRow, key: SortKey): number {
 }
 
 function toCsv(rows: PassengerRow[]): string {
-  const head = ["Ism", "Telefon", "Sayohatlar", "Qo'shilgan", "Holat"];
+  const head = ["Ism", "Telefon", "Turi", "Sayohatlar", "Qo'shilgan", "Holat"];
   const esc = (v: unknown) => {
     const s = String(v ?? "");
     return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const lines = rows.map((p) =>
-    [p.full_name, p.phone, p.total_rides, formatDate(p.created_at), p.is_blocked ? "bloklangan" : "faol"]
+    [p.full_name, p.phone, p.role === "driver" ? "haydovchi" : "yo'lovchi",
+     p.total_rides, formatDate(p.created_at), p.is_blocked ? "bloklangan" : "faol"]
       .map(esc).join(";"),
   );
   return "﻿" + [head.join(";"), ...lines].join("\n");
@@ -69,9 +70,14 @@ export default function PassengersPage() {
 
   // Fetch everything once; search/filter/sort are client-side so they are
   // instant and need no backend change.
+  // Off by default: this list doubles as the client registry, and the counts
+  // below it should mean "clients", not "clients plus the fleet". Drivers order
+  // taxis too though, so an operator sometimes needs to find one here.
+  const [includeDrivers, setIncludeDrivers] = useState(false);
+
   const passengers = useQuery({
-    queryKey: ["passengers"],
-    queryFn: () => passengersApi.list(),
+    queryKey: ["passengers", includeDrivers],
+    queryFn: () => passengersApi.list(undefined, includeDrivers),
     refetchInterval: 30000,
   });
 
@@ -240,6 +246,14 @@ export default function PassengersPage() {
             <option value="7d">Oxirgi 7 kun</option>
             <option value="30d">Oxirgi 30 kun</option>
           </select>
+          <label className="flex items-center gap-2 text-sm whitespace-nowrap px-1">
+            <input
+              type="checkbox"
+              checked={includeDrivers}
+              onChange={(e) => setIncludeDrivers(e.target.checked)}
+            />
+            Haydovchilarni ham ko&apos;rsatish
+          </label>
           {hasFilters && <button className="btn btn-ghost" onClick={clearFilters}>Tozalash</button>}
           <div className="ml-auto flex items-center gap-2">
             <span className="text-xs text-muted">{visible.length} / {all.length}</span>
@@ -291,7 +305,14 @@ export default function PassengersPage() {
                       <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleOne(p.id)} aria-label="Belgilash" />
                     </td>
                     <td className="px-4 py-3">
-                      <Link href={`/passengers/${p.id}`} className="font-medium hover:underline">{p.full_name}</Link>
+                      {p.role === "driver" ? (
+                        <span className="flex items-center gap-2">
+                          <span className="font-medium">{p.full_name}</span>
+                          <Badge tone="blue">haydovchi</Badge>
+                        </span>
+                      ) : (
+                        <Link href={`/passengers/${p.id}`} className="font-medium hover:underline">{p.full_name}</Link>
+                      )}
                     </td>
                     <td className="px-4 py-3 font-mono text-xs">{formatPhone(p.phone)}</td>
                     <td className="px-4 py-3 tabular-nums">{formatNumber(p.total_rides)}</td>

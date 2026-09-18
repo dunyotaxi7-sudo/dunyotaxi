@@ -119,16 +119,29 @@ def phone_search_digits(search: str) -> str | None:
     return digits if digits and digits.isdigit() else None
 
 
-async def list_passengers(db: AsyncSession, search: str | None = None) -> list[dict]:
+async def list_passengers(
+    db: AsyncSession, search: str | None = None, include_drivers: bool = False
+) -> list[dict]:
+    """Clients for the panel.
+
+    ``include_drivers`` widens the list to driver accounts too. A person holds
+    one role — ``users.phone`` is UNIQUE and ``users.role`` is a single value —
+    so a driver who wants to ride cannot also have a passenger account. Nothing
+    stops a driver *being* a ride's passenger though (``rides.passenger_id`` is
+    a plain user reference), so the operator needs to be able to find them.
+    Off by default: this list doubles as the client registry and its counts
+    should stay meaningful.
+    """
     ride_count = (
         select(Ride.passenger_id, func.count().label("cnt"))
         .group_by(Ride.passenger_id)
         .subquery()
     )
+    roles = ["passenger", "driver"] if include_drivers else ["passenger"]
     stmt = (
         select(User, func.coalesce(ride_count.c.cnt, 0))
         .outerjoin(ride_count, ride_count.c.passenger_id == User.id)
-        .where(User.role == "passenger")
+        .where(User.role.in_(roles))
     )
     if search:
         search = search.strip()
@@ -146,6 +159,9 @@ async def list_passengers(db: AsyncSession, search: str | None = None) -> list[d
             "id": u.id,
             "full_name": u.full_name,
             "phone": u.phone,
+            # So the panel can badge a driver rather than passing them off as
+            # an ordinary client.
+            "role": u.role,
             "total_rides": int(cnt),
             "is_blocked": u.is_blocked,
             "created_at": u.created_at,

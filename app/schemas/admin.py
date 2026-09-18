@@ -260,6 +260,8 @@ class PassengerRow(BaseModel):
     id: uuid.UUID
     full_name: str
     phone: str
+    # "passenger", or "driver" when the caller asked for drivers too.
+    role: str = "passenger"
     total_rides: int
     is_blocked: bool
     created_at: datetime | None = None

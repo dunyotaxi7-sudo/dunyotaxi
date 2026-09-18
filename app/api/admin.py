@@ -312,8 +312,9 @@ async def block_user(
 async def list_passengers(
     db: AsyncSession = Depends(get_db),
     search: str | None = None,
+    include_drivers: bool = False,
 ):
-    rows = await admin_service.list_passengers(db, search)
+    rows = await admin_service.list_passengers(db, search, include_drivers)
     return [PassengerRow(**r) for r in rows]
 
 
@@ -455,8 +456,10 @@ async def request_passenger_location(
     Fails loudly when they have no registered device, because then the
     operator must take the address by voice and should not sit waiting.
     """
+    # Drivers order taxis too, and an order can be created for them — so they
+    # can be asked where they are on the same terms as any other client.
     passenger = await db.get(User, payload.passenger_id)
-    if passenger is None or passenger.role != "passenger":
+    if passenger is None or passenger.role not in ("passenger", "driver"):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "mijoz topilmadi")
 
     tokens = await push.get_tokens(r, str(passenger.id))

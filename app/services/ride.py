@@ -281,6 +281,19 @@ def start_dispatch(
     asyncio.create_task(_dispatch_loop(str(ride_id), lat, lng, prefer, exclude))
 
 
+async def _own_driver_id(db, passenger_id) -> str | None:
+    """This passenger's own driver profile, if they happen to be a driver.
+
+    Drivers order taxis too (an operator creates the order for them), and
+    ``rides.passenger_id`` is a plain user reference, so without this the
+    nearest-driver search can hand a driver their own ride — dispatching them
+    to collect themselves.
+    """
+    res = await db.execute(select(Driver.id).where(Driver.user_id == passenger_id))
+    driver_id = res.scalar_one_or_none()
+    return str(driver_id) if driver_id else None
+
+
 async def _dispatch_loop(
     ride_id: str,
     lat: float,
@@ -296,6 +309,9 @@ async def _dispatch_loop(
     rejected: set[str] = set(exclude or ())
     timeout = float(settings.driver_accept_timeout_seconds)
     first = prefer  # offer this driver alone first (admin "offer" order)
+    # Resolved on the first pass and folded into `rejected`, which every
+    # candidate search below already excludes.
+    own_driver_checked = False
 
     try:
         while True:
@@ -303,6 +319,12 @@ async def _dispatch_loop(
                 ride = await db.get(Ride, uuid.UUID(ride_id))
                 if ride is None or ride.status != "searching":
                     return  # cancelled or already handled
+
+                if not own_driver_checked:
+                    own_driver_checked = True
+                    own = await _own_driver_id(db, ride.passenger_id)
+                    if own:
+                        rejected.add(own)
 
                 if first and first not in rejected:
                     targets = [(first, 0.0)]
@@ -565,10 +587,14 @@ async def _announce_and_fallback(ride_id: str, lat: float, lng: float) -> None:
             if ride is None or ride.status != "searching":
                 return
             eligible = await pricing.eligible_car_classes(db, ride.car_type)
+            skip = set(_active_ride_by_driver.keys())
+            own = await _own_driver_id(db, ride.passenger_id)
+            if own:
+                skip.add(own)
             cands = await matching.find_nearest_drivers(
                 db, r, lat, lng, radii=[settings.broadcast_radius_meters],
                 limit=1, car_classes=eligible,
-                exclude=set(_active_ride_by_driver.keys()),
+                exclude=skip,
             )
         if cands:
             await force_assign(ride_id, cands[0].driver_id)
