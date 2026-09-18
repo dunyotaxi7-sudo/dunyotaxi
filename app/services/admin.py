@@ -1,6 +1,7 @@
 """Admin service: audit logging, moderation, config CRUD, stats."""
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime, timedelta
 
@@ -103,6 +104,21 @@ async def review_document(
     return doc
 
 
+# Phones are stored unbroken (+998935770488) but shown grouped
+# (+998 93 577 04 88), so an operator reading a number aloud types the spaces —
+# and a raw substring match on that finds nothing. Strip the separators before
+# matching. Anything containing a letter is a name and is left alone. The
+# drivers list already works this way client-side (admin/lib/driverSearch.ts);
+# passengers search server-side, so it needs the same thing in SQL.
+_PHONE_SEPARATORS = re.compile(r"[\s()\-.+]")
+
+
+def phone_search_digits(search: str) -> str | None:
+    """The bare digits of ``search`` when it reads as a phone number, else None."""
+    digits = _PHONE_SEPARATORS.sub("", search)
+    return digits if digits and digits.isdigit() else None
+
+
 async def list_passengers(db: AsyncSession, search: str | None = None) -> list[dict]:
     ride_count = (
         select(Ride.passenger_id, func.count().label("cnt"))
@@ -115,8 +131,13 @@ async def list_passengers(db: AsyncSession, search: str | None = None) -> list[d
         .where(User.role == "passenger")
     )
     if search:
-        like = f"%{search.strip()}%"
-        stmt = stmt.where(User.full_name.ilike(like) | User.phone.ilike(like))
+        search = search.strip()
+        like = f"%{search}%"
+        clause = User.full_name.ilike(like) | User.phone.ilike(like)
+        digits = phone_search_digits(search)
+        if digits:
+            clause = clause | User.phone.ilike(f"%{digits}%")
+        stmt = stmt.where(clause)
     stmt = stmt.order_by(User.created_at.desc())
 
     rows = await db.execute(stmt)
