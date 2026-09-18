@@ -10,6 +10,7 @@ import { rideStatusLabel } from "@/lib/strings";
 import type { ConnectMode } from "@/lib/types";
 import { DriverPicker } from "@/components/DriverPicker";
 import { OrderLocationPicker, type Loc } from "@/components/OrderLocationPicker";
+import { RequestLocationPrompt } from "@/components/RequestLocationPrompt";
 import { ErrorBlock } from "@/components/ui";
 
 type SelectedClient = { id: string; full_name: string; phone: string };
@@ -171,6 +172,12 @@ export default function OrdersPage() {
       {/* Route */}
       <section className="card p-5 space-y-3">
         <h3 className="font-semibold">Manzillar</h3>
+        {/* Telefon orqali chaqirgan mijozdan joylashuvni so'rash. */}
+        <RequestLocationPrompt
+          key={selected?.id ?? "no-client"}
+          passengerId={selected?.id ?? null}
+          onLocation={setPickup}
+        />
         <OrderLocationPicker
           pickup={pickup}
           destination={destination}

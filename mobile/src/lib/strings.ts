@@ -138,6 +138,28 @@ export const t = {
     skip: "Keyinroq",
   },
 
+  shareLocation: {
+    title: "Joylashuvni yuborish",
+    subtitle:
+      "Operator buyurtmangiz uchun hozirgi joylashuvingizni so'rayapti.",
+    privacy:
+      "Faqat siz yuborganingizda, bir marta olinadi. Ilova sizni kuzatmaydi.",
+    locating: "Joylashuv aniqlanmoqda…",
+    accuracy: (m: number) => `Aniqlik: ~${Math.round(m)} m`,
+    send: "Joylashuvni yuborish",
+    decline: "Yubormayman",
+    sent: "Joylashuv yuborildi ✓",
+    sentHint: "Operator manzilni ko'rdi. Endi ilovani yopishingiz mumkin.",
+    declined: "Yuborilmadi",
+    declinedHint: "Manzilni operatorga og'zaki ayting.",
+    expired: "So'rov muddati tugagan",
+    expiredHint: "Operatordan qayta so'rashini iltimos qiling.",
+    noPermission:
+      "Joylashuvga ruxsat berilmagan. Sozlamalardan ruxsat bering yoki manzilni og'zaki ayting.",
+    retry: "Qayta aniqlash",
+    close: "Yopish",
+  },
+
   profile: {
     title: "Profil",
     name: "Ism",

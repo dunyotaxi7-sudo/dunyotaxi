@@ -20,6 +20,7 @@ import type {
   DriverPublic,
   DriverStatus,
   LiveRideRow,
+  LocationRequest,
   NearbyOrderDriver,
   UpdateDriverProfileInput,
   OnlineDriver,
@@ -194,6 +195,22 @@ export const ordersApi = {
   lookupByPhone: (phone: string) =>
     api
       .get<UserLookup>("/admin/users/by-phone", { params: { phone } })
+      .then((r) => r.data),
+};
+
+// ── Location requests ─────────────────────────────────────────────────
+// Ask a passenger who called in to share their GPS position. `create` sends
+// the push; `get` is polled until they answer or the request expires.
+export const locationRequestsApi = {
+  create: (passengerId: string) =>
+    api
+      .post<LocationRequest>("/admin/location-requests", {
+        passenger_id: passengerId,
+      })
+      .then((r) => r.data),
+  get: (requestId: string) =>
+    api
+      .get<LocationRequest>(`/admin/location-requests/${requestId}`)
       .then((r) => r.data),
 };
 

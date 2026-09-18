@@ -1,8 +1,10 @@
 """Redis connection helpers.
 
-Redis is used for two things in this project:
+Redis is used for three things in this project:
   * OTP codes          — key ``otp:<phone>`` with a short TTL.
   * Live driver GPS    — geo set ``drivers:online`` populated with GEOADD.
+  * Location requests  — ``locreq:<id>``, the operator→passenger "where are
+    you?" round-trip (see :mod:`app.services.location_request`).
 """
 from __future__ import annotations
 
@@ -39,6 +41,21 @@ ESKIZ_TOKEN_KEY = "sms:eskiz:token"
 def driver_meta_key(driver_id: str) -> str:
     """Hash holding a driver's last-seen heading/bearing/timestamp."""
     return f"driver:meta:{driver_id}"
+
+
+def location_request_key(request_id: str) -> str:
+    """Hash holding one operator→passenger location request and its answer."""
+    return f"locreq:{request_id}"
+
+
+def location_request_cooldown_key(user_id: str) -> str:
+    """Blocks re-asking the same passenger for their location too quickly."""
+    return f"locreq:cd:{user_id}"
+
+
+def location_request_latest_key(user_id: str) -> str:
+    """The passenger's most recent request, so re-asking can retire the old one."""
+    return f"locreq:latest:{user_id}"
 
 
 _pool: redis.Redis | None = None

@@ -28,6 +28,7 @@ from app.api.deps import (
     require_staff,
 )
 from app.core.database import get_db
+from app.core.redis_client import location_request_key
 from app.core.timezone import today_uz
 from app.models import (
     BonusCampaign,
@@ -39,6 +40,10 @@ from app.models import (
     PricingConfig,
     PromoCode,
     User,
+)
+from app.schemas.location import (
+    AdminLocationRequestCreate,
+    AdminLocationRequestOut,
 )
 from app.schemas.admin import (
     BroadcastIn,
@@ -100,6 +105,8 @@ from app.services import admin as admin_service
 from app.services import operator as operator_service
 from app.services import driver as driver_service
 from app.services import location
+from app.services import location_request
+from app.services import push
 from app.services import ride as ride_service
 from app.services import service_area
 
@@ -427,6 +434,99 @@ async def create_order(
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
     return AdminOrderOut(**result)
+
+
+# ── Location requests (phone orders) ──────────────────────────────────
+
+
+@router.post(
+    "/location-requests", response_model=AdminLocationRequestOut, status_code=201
+)
+async def request_passenger_location(
+    payload: AdminLocationRequestCreate,
+    request: Request,
+    staff: User = Depends(require_staff),
+    db: AsyncSession = Depends(get_db),
+    r: redis.Redis = Depends(get_redis_dep),
+):
+    """Ask a passenger who called in to share their current location.
+
+    Sends a push they have to tap; the answer is polled from the GET below.
+    Fails loudly when they have no registered device, because then the
+    operator must take the address by voice and should not sit waiting.
+    """
+    passenger = await db.get(User, payload.passenger_id)
+    if passenger is None or passenger.role != "passenger":
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "mijoz topilmadi")
+
+    tokens = await push.get_tokens(r, str(passenger.id))
+    if not tokens:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Mijozda ilova o'rnatilmagan — manzilni og'zaki so'rang",
+        )
+
+    waiting = await location_request.cooldown_left(r, str(passenger.id))
+    if waiting:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"So'rov endigina yuborildi — {waiting} soniyadan keyin urinib ko'ring",
+        )
+
+    request_id = await location_request.create(
+        r, str(passenger.id), asked_by=str(staff.id)
+    )
+    await push.send_to_user(
+        r,
+        str(passenger.id),
+        "Joylashuvingizni yuboring",
+        "Operator buyurtmangiz uchun joylashuvingizni so'rayapti. Yuborish uchun bosing.",
+        {"type": "location_request", "request_id": request_id},
+    )
+    # Asking where someone is, is worth a record even when they say no.
+    await admin_service.log_action(
+        db,
+        staff.id,
+        "location_request",
+        entity_type="user",
+        entity_id=str(passenger.id),
+        ip_address=client_ip(request),
+    )
+    await db.commit()
+    return AdminLocationRequestOut(
+        request_id=request_id,
+        status=location_request.STATUS_PENDING,
+        devices=len(tokens),
+        expires_in=location_request.REQUEST_TTL_SECONDS,
+    )
+
+
+@router.get(
+    "/location-requests/{request_id}", response_model=AdminLocationRequestOut
+)
+async def location_request_status(
+    request_id: str,
+    r: redis.Redis = Depends(get_redis_dep),
+):
+    """Polled by the Orders page until the passenger answers or it expires.
+
+    Staff-only via the router-level ``require_staff`` dependency.
+    """
+    req = await location_request.get(r, request_id)
+    if req is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "So'rov topilmadi yoki muddati tugagan"
+        )
+    ttl = await r.ttl(location_request_key(request_id))
+    return AdminLocationRequestOut(
+        request_id=request_id,
+        status=req["status"],
+        lat=req["lat"],
+        lng=req["lng"],
+        address=req["address"],
+        accuracy_m=req["accuracy_m"],
+        expires_in=max(ttl or 0, 0),
+    )
 
 
 # ── Rides ─────────────────────────────────────────────────────────────

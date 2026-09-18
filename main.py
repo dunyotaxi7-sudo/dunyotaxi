@@ -13,7 +13,15 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
-from app.api import admin, auth, driver, notifications, payments, rides
+from app.api import (
+    admin,
+    auth,
+    driver,
+    location_requests,
+    notifications,
+    payments,
+    rides,
+)
 from app.core.config import settings
 from app.core.signed_url import verify as verify_upload
 from app.core.database import AsyncSessionLocal
@@ -85,6 +93,7 @@ app.include_router(driver.router)
 app.include_router(rides.router)
 app.include_router(payments.router)
 app.include_router(notifications.router)
+app.include_router(location_requests.router)
 app.include_router(admin.router)
 
 # WebSocket routes

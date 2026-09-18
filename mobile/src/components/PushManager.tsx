@@ -15,6 +15,15 @@ function isNewOrder(data: unknown): boolean {
   );
 }
 
+// An operator asking a passenger who ordered by phone where they are carries
+// { type: "location_request", request_id }. Tapping it opens the consent screen.
+function locationRequestId(data: unknown): string | null {
+  if (!data || typeof data !== "object") return null;
+  const d = data as { type?: string; request_id?: unknown };
+  if (d.type !== "location_request") return null;
+  return typeof d.request_id === "string" && d.request_id ? d.request_id : null;
+}
+
 // Remote push was removed from Expo Go in SDK 53 — calling the notifications
 // APIs there throws. This app needs a development build; in Expo Go we simply
 // no-op so the app still runs (without push).
@@ -40,6 +49,12 @@ function PushManagerInner() {
     // Driver tapped a new-order notification → open the board.
     if (isNewOrder(data)) {
       router.push("/orders");
+      return;
+    }
+    // Passenger tapped a location request → ask them to share a fix.
+    const requestId = locationRequestId(data);
+    if (requestId) {
+      router.push({ pathname: "/share-location", params: { requestId } });
       return;
     }
     const ride = parseRideData(data);

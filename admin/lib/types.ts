@@ -419,6 +419,23 @@ export interface AdminOrderResult {
   distance_km: string | null;
 }
 
+export type LocationRequestStatus = "pending" | "shared" | "declined";
+
+/** An operator's "where are you?" request to a passenger who ordered by phone. */
+export interface LocationRequest {
+  request_id: string;
+  status: LocationRequestStatus;
+  lat: number | null;
+  lng: number | null;
+  address: string | null;
+  /** Radius of the passenger's fix in metres — big means cell towers, not GPS. */
+  accuracy_m: number | null;
+  /** Devices the push went to (only set on the initial request). */
+  devices: number;
+  /** Seconds left before the request expires. */
+  expires_in: number;
+}
+
 export interface AuditLog {
   id: string;
   admin_id: string;
