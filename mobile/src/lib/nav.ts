@@ -30,6 +30,15 @@ export function callPhone(phone: string) {
   Linking.openURL(`tel:${phone}`).catch(() => {});
 }
 
+// Dispatcher hotline. A short code, so it is dialled as-is with no country
+// prefix — do not "normalise" it into +998 form.
+export const SUPPORT_PHONE = "1066";
+
+/** Dial the support hotline. Hands off to the phone app with 1066 ready. */
+export function callSupport() {
+  callPhone(SUPPORT_PHONE);
+}
+
 // The in-app guide lives in a Telegram post rather than a bundled screen: the
 // app ships no over-the-air updates, so help text hardcoded here would need a
 // store release every time it changed.

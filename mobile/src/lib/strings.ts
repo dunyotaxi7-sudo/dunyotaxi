@@ -66,6 +66,7 @@ export const t = {
     permDenied: "Joylashuvga ruxsat berilmadi. Manzilni qo'lda tanlang.",
     noDrivers: "Yaqin atrofda haydovchilar yo'q",
     outsideArea: "Xizmat faqat Buxoro viloyati ichida ishlaydi",
+    support: "Qo'llab-quvvatlash",
   },
 
   pick: {

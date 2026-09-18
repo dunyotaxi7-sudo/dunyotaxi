@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -15,6 +15,7 @@ import {
   useCurrentLocation,
 } from "@/components/Map";
 import { ridesApi } from "@/lib/api/rides";
+import { SUPPORT_PHONE, callSupport } from "@/lib/nav";
 import { Button } from "@/components/ui/Button";
 import { t } from "@/lib/strings";
 import { useRideDraft } from "@/store/ride";
@@ -72,6 +73,11 @@ export default function PassengerHome() {
     [drivers.data],
   );
 
+  // The sheet's height changes with its content (the out-of-area warning adds a
+  // row), so the support button is parked against a measured height rather than
+  // a guessed offset that would end up under the sheet on some screens.
+  const [sheetHeight, setSheetHeight] = useState(0);
+
   const fromOutside = Boolean(from && !isWithinServiceArea(from.coords));
   const toOutside = Boolean(to && !isWithinServiceArea(to.coords));
   const canContinue = Boolean(from && to) && !fromOutside && !toOutside;
@@ -116,6 +122,19 @@ export default function PassengerHome() {
         <Ionicons name="locate" size={20} color={colors.primary} />
       </Pressable>
 
+      {/* Support hotline, above the sheet on the right. Rendered only once the
+          sheet has been measured, so it never flashes in at the wrong place. */}
+      {sheetHeight > 0 && (
+        <Pressable
+          onPress={callSupport}
+          style={[styles.supportBtn, { bottom: sheetHeight + spacing(3) }]}
+          accessibilityRole="button"
+          accessibilityLabel={`${t.home.support} — ${SUPPORT_PHONE}`}
+        >
+          <Ionicons name="headset-outline" size={20} color={colors.primary} />
+        </Pressable>
+      )}
+
       {location.status === "denied" && (
         <View style={[styles.permBanner, { top: insets.top + spacing(16) }]}>
           <Text style={styles.permText}>{t.home.permDenied}</Text>
@@ -123,7 +142,10 @@ export default function PassengerHome() {
       )}
 
       {/* Bottom sheet */}
-      <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing(4) }]}>
+      <View
+        style={[styles.sheet, { paddingBottom: insets.bottom + spacing(4) }]}
+        onLayout={(e) => setSheetHeight(e.nativeEvent.layout.height)}
+      >
         <View style={styles.handle} />
         <Text style={styles.sheetTitle}>{t.home.whereTo}</Text>
 
@@ -199,6 +221,21 @@ const round = (n: number) => Math.round(n * 1000) / 1000;
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   locateBtn: {
+    position: "absolute",
+    right: spacing(4),
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.bg,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  supportBtn: {
     position: "absolute",
     right: spacing(4),
     width: 44,
