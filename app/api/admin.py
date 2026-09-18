@@ -456,11 +456,16 @@ async def request_passenger_location(
     Fails loudly when they have no registered device, because then the
     operator must take the address by voice and should not sit waiting.
     """
-    # Drivers order taxis too, and an order can be created for them — so they
-    # can be asked where they are on the same terms as any other client.
     passenger = await db.get(User, payload.passenger_id)
     if passenger is None or passenger.role not in ("passenger", "driver"):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "mijoz topilmadi")
+    # No order can be created for a driver's number, so asking them where they
+    # are would only strand the operator waiting on a request that leads nowhere.
+    if await driver_service.has_driver_profile(db, passenger.id):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Bu raqam haydovchiga tegishli — unga buyurtma yaratib bo'lmaydi",
+        )
 
     tokens = await push.get_tokens(r, str(passenger.id))
     if not tokens:

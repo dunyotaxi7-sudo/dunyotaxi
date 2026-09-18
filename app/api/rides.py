@@ -28,7 +28,7 @@ from app.schemas.ride import (
     RideRequest,
     WaitStartIn,
 )
-from app.services import matching, pricing, ride as ride_service
+from app.services import driver as driver_service, matching, pricing, ride as ride_service
 
 router = APIRouter(prefix="/rides", tags=["rides"])
 
@@ -98,6 +98,14 @@ async def request_ride(
 ):
     if user.role not in {"passenger", "driver", "admin"}:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "not allowed")
+    # One number, one purpose: a number that drives cannot also ride. The check
+    # is on the driver profile, not on `role` — role only records what someone
+    # registered as and a passenger can acquire a profile later.
+    if await driver_service.has_driver_profile(db, user.id):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Haydovchi hisobi bilan buyurtma berib bo'lmaydi",
+        )
     try:
         ride = await ride_service.create_ride(db, user.id, payload)
     except ride_service.RideError as e:

@@ -6,10 +6,10 @@ from datetime import datetime
 from pathlib import Path
 
 import redis.asyncio as redis
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import CarModel, Driver, DriverDocument, User
+from app.models import CarModel, Driver, DriverDocument, Ride, User
 from app.services import location
 
 # Shared document-file storage (used by the driver upload endpoint and the
@@ -34,12 +34,44 @@ async def get_driver_by_user(db: AsyncSession, user_id: uuid.UUID) -> Driver | N
     return res.scalar_one_or_none()
 
 
+# ── One number, one purpose ───────────────────────────────────────────
+# A phone number is either a driver's or a passenger's, never both. The two
+# gates below enforce it from each side; keeping the rule here means the app,
+# the operator panel and the API all answer the same way.
+
+
+async def has_driver_profile(db: AsyncSession, user_id: uuid.UUID) -> bool:
+    """True if this account drives, and so may not order rides."""
+    return await get_driver_by_user(db, user_id) is not None
+
+
+async def has_ordered_rides(db: AsyncSession, user_id: uuid.UUID) -> bool:
+    """True if this account has ridden as a passenger, and so may not drive."""
+    res = await db.execute(
+        select(func.count()).select_from(Ride).where(Ride.passenger_id == user_id)
+    )
+    return bool(res.scalar() or 0)
+
+
 async def register_driver(db: AsyncSession, user: User, payload) -> Driver:
+    """Create this account's driver profile.
+
+    Refused for an account that has ridden as a passenger — the number is
+    already a passenger's, and letting it drive too is what this rule exists to
+    prevent. They register with a different number.
+    """
     if user.role == "admin":
         # Promoting an admin would revoke their panel access, but leaving the
         # role alone would create a driver profile the role guards then reject —
         # a half-registered account that can't be used or undone. Refuse both.
         raise DriverError("admin accounts cannot register as drivers")
+    # Checked before the role is promoted below, so the number's history is
+    # what decides — not what it has just been changed to.
+    if await has_ordered_rides(db, user.id):
+        raise DriverError(
+            "Bu raqam yo'lovchi sifatida ishlatilgan — haydovchi uchun "
+            "boshqa raqamdan ro'yxatdan o'ting"
+        )
     if user.role == "passenger":
         # Promote a passenger account to driver on first registration.
         user.role = "driver"

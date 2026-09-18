@@ -31,11 +31,17 @@ export default function RootLayout() {
     );
   }
 
-  // One account can be both. Which app shows is the user's chosen mode — not a
-  // fixed role. Driver mode is reachable by anyone: the driver stack's gate
-  // walks newcomers through registration → documents → approval.
+  // One number, one purpose: an account that drives cannot also ride, so an
+  // account with a driver profile stays in the driver app and has no passenger
+  // mode to switch to. The server enforces the same rule — it refuses a ride
+  // request from a number that drives — and this keeps the app from offering
+  // what the API would reject.
+  //
+  // `mode === "driver"` still counts on its own so a newcomer without a profile
+  // yet can enter the driver stack, whose gate walks them through
+  // registration → documents → approval.
   const signedIn = Boolean(user);
-  const isDriver = signedIn && mode === "driver";
+  const isDriver = signedIn && (mode === "driver" || Boolean(user?.is_driver));
   const isPassenger = signedIn && !isDriver;
 
   return (

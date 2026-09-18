@@ -60,7 +60,12 @@ function PushManagerInner() {
     // once the passenger stack exists.
     const requestId = locationRequestId(data);
     if (requestId) {
-      const { mode, setMode, setPendingLocationRequest } = useAuth.getState();
+      const { mode, user, setMode, setPendingLocationRequest } =
+        useAuth.getState();
+      // A number that drives cannot order rides, so it should never receive
+      // one of these. If a stale request arrives anyway, drop it rather than
+      // switching to a mode whose stack this account does not have.
+      if (user?.is_driver) return;
       setPendingLocationRequest(requestId);
       if (mode !== "passenger") void setMode("passenger");
       return;

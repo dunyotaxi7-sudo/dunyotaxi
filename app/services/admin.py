@@ -34,6 +34,7 @@ from app.models import (
     WalletTransaction,
 )
 from app.services import auth as auth_service
+from app.services import driver as driver_service
 from app.services import location
 from app.services import matching
 from app.services import pricing
@@ -591,6 +592,12 @@ async def create_order(
     user = await db.get(User, payload.passenger_id)
     if user is None:
         raise ValueError("passenger not found")
+    # One number, one purpose — the same rule the app enforces, so an order
+    # cannot be created by phone that the passenger could not have placed.
+    if await driver_service.has_driver_profile(db, user.id):
+        raise ValueError(
+            "Bu raqam haydovchiga tegishli — unga buyurtma yaratib bo'lmaydi"
+        )
     # Capture now — attributes expire after the commit inside create_admin_ride.
     passenger_id = user.id
     passenger_phone = user.phone

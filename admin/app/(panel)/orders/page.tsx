@@ -71,12 +71,12 @@ export default function OrdersPage() {
     const t = setTimeout(() => setDebounced(clientSearch.trim()), 250);
     return () => clearTimeout(t);
   }, [clientSearch]);
-  // Drivers order taxis too, and nothing stops a driver being a ride's
-  // passenger — so the picker searches them as well, badged so the operator
-  // knows who they are choosing.
+  // Deliberately does NOT search drivers: one number, one purpose — the API
+  // refuses an order for a number that drives, so offering one here would only
+  // let an operator pick a client the order then fails on.
   const clientResults = useQuery({
-    queryKey: ["client-search", debounced, "with-drivers"],
-    queryFn: () => passengersApi.list(debounced, true),
+    queryKey: ["client-search", debounced],
+    queryFn: () => passengersApi.list(debounced),
     enabled: !selected && debounced.length >= 2,
   });
 
