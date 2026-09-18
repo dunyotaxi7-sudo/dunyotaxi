@@ -4,6 +4,7 @@ import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import { parseRideData, registerForPush } from "@/lib/push";
+import { useAuth } from "@/store/auth";
 
 // A new-order push (sent to drivers when an order lands on the board) carries
 // { type: "new_order" }. Tapping it should open the order board.
@@ -51,10 +52,17 @@ function PushManagerInner() {
       router.push("/orders");
       return;
     }
-    // Passenger tapped a location request → ask them to share a fix.
+    // Tapped a location request → ask them to share a fix. The consent screen
+    // lives in the passenger stack, and an account with a driver profile opens
+    // in driver mode by default (defaultMode in the auth store), where that
+    // stack is not mounted — navigating straight there would silently do
+    // nothing. So park the id, switch modes, and let the effect below navigate
+    // once the passenger stack exists.
     const requestId = locationRequestId(data);
     if (requestId) {
-      router.push({ pathname: "/share-location", params: { requestId } });
+      const { mode, setMode, setPendingLocationRequest } = useAuth.getState();
+      setPendingLocationRequest(requestId);
+      if (mode !== "passenger") void setMode("passenger");
       return;
     }
     const ride = parseRideData(data);
@@ -93,6 +101,21 @@ function PushManagerInner() {
     });
     return () => sub.remove();
   }, [qc]);
+
+  // Drains the parked location request as soon as the passenger stack is up.
+  // Both stacks mount a PushManager, so this runs in whichever one is showing;
+  // the mode check keeps the driver copy from navigating to a route it has no
+  // access to.
+  const mode = useAuth((s) => s.mode);
+  const pendingLocationRequest = useAuth((s) => s.pendingLocationRequest);
+  useEffect(() => {
+    if (mode !== "passenger" || !pendingLocationRequest) return;
+    useAuth.getState().setPendingLocationRequest(null);
+    router.push({
+      pathname: "/share-location",
+      params: { requestId: pendingLocationRequest },
+    });
+  }, [mode, pendingLocationRequest, router]);
 
   // Cold start: app opened by tapping a notification.
   const lastResponse = Notifications.useLastNotificationResponse();

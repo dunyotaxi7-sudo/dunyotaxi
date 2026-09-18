@@ -21,12 +21,26 @@ interface AuthState {
   updateUser: (user: UserPublic) => Promise<void>;
   /** Clear the session everywhere. */
   signOut: () => Promise<void>;
+  /** Switch which app is showing, and remember it. */
+  setMode: (mode: AppMode) => Promise<void>;
+  /**
+   * A location request that arrived while the driver app was showing.
+   *
+   * The consent screen lives in the passenger stack, which Stack.Protected
+   * leaves unmounted in driver mode — so the tap is parked here, the mode is
+   * switched, and whichever PushManager mounts next picks it up. It lives in
+   * the store rather than in PushManager because that component unmounts with
+   * the stack it belongs to, taking any local state with it.
+   */
+  pendingLocationRequest: string | null;
+  setPendingLocationRequest: (requestId: string | null) => void;
 }
 
 export const useAuth = create<AuthState>((set, get) => ({
   user: null,
   mode: "passenger",
   hydrated: false,
+  pendingLocationRequest: null,
 
   hydrate: async () => {
     const { access } = await tokenStorage.get();
@@ -65,8 +79,17 @@ export const useAuth = create<AuthState>((set, get) => ({
   signOut: async () => {
     await tokenStorage.clear();
     memoToken.set(null);
-    set({ user: null, mode: "passenger" });
+    set({ user: null, mode: "passenger", pendingLocationRequest: null });
   },
+
+  setMode: async (mode) => {
+    if (get().mode === mode) return;
+    await modeStorage.set(mode);
+    set({ mode });
+  },
+
+  setPendingLocationRequest: (requestId) =>
+    set({ pendingLocationRequest: requestId }),
 }));
 
 // When any request 401s, drop the session (the guard then routes to login).
