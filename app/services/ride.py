@@ -44,6 +44,11 @@ TRANSITIONS: dict[str, set[str]] = {
 # Which drivers a ride is currently being broadcast to (ride_id -> set of
 # driver_id strings). The offer goes to all of them at once; the first to accept
 # wins and the rest are revoked.
+# How often to re-scan for drivers while an order is waiting with nobody in
+# range. Short enough that a driver coming online is offered the order almost
+# at once; long enough that a quiet night is not a busy-loop on Redis + DB.
+NO_CANDIDATE_RETRY_SECONDS = 5
+
 _current_offer: dict[str, set[str]] = {}
 
 # Active ride per driver, so the driver-location WS can relay live position to
@@ -309,6 +314,15 @@ async def _dispatch_loop(
     rejected: set[str] = set(exclude or ())
     timeout = float(settings.driver_accept_timeout_seconds)
     first = prefer  # offer this driver alone first (admin "offer" order)
+    # An order created when nobody is in range used to die in the same
+    # millisecond it was born: one search, empty list, cancelled. An operator
+    # taking the call had no chance to react, and a driver coming online
+    # seconds later never saw it. Keep looking for the same window an app
+    # order gets on the board — drivers come online and drive into range
+    # constantly. list_fallback_seconds = 0 disables the wait, restoring the
+    # old give-up-at-once behaviour.
+    clock = asyncio.get_running_loop()
+    search_deadline = clock.time() + float(settings.list_fallback_seconds)
     # Resolved on the first pass and folded into `rejected`, which every
     # candidate search below already excludes.
     own_driver_checked = False
@@ -346,9 +360,19 @@ async def _dispatch_loop(
                         limit=settings.broadcast_max_drivers,
                         car_classes=eligible,
                     )
-                    if not candidates:
-                        break
-                    targets = [(c.driver_id, c.distance_m) for c in candidates]
+                    # None (not []) means "nobody right now" — handled below,
+                    # outside the session so the wait holds no DB connection.
+                    targets = (
+                        [(c.driver_id, c.distance_m) for c in candidates]
+                        if candidates
+                        else None
+                    )
+
+            if targets is None:
+                if clock.time() >= search_deadline:
+                    break  # window closed → _no_driver_found
+                await asyncio.sleep(NO_CANDIDATE_RETRY_SECONDS)
+                continue
 
             # Atomic claim (no await before setting _current_offer): drop any
             # driver another order grabbed since selection.
