@@ -48,3 +48,17 @@ export function formatKm(value: string | number | null | undefined): string {
   if (Number.isNaN(n)) return "—";
   return `${n.toFixed(1)} km`;
 }
+
+/**
+ * An Uzbek mobile number as the database stores it (+998XXXXXXXXX), from
+ * however an operator typed it — "93 264 22 33", "+998 93 264 22 33",
+ * "932642233" all give the same answer. Returns null if it isn't one.
+ */
+export function toUzPhone(input: string): string | null {
+  const digits = input.replace(/\D/g, "");
+  const local =
+    digits.length === 9 ? digits
+    : digits.length === 12 && digits.startsWith("998") ? digits.slice(3)
+    : null;
+  return local ? `+998${local}` : null;
+}

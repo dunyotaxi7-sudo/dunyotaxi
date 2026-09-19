@@ -401,7 +401,11 @@ export interface OrderLocation {
 }
 
 export interface CreateOrderInput {
-  passenger_id: string;
+  /** An existing client... */
+  passenger_id?: string;
+  /** ...or a caller's number, created if we have never seen it. */
+  passenger_phone?: string;
+  passenger_name?: string;
   pickup: OrderLocation;
   destination: OrderLocation;
   distance_km?: number;

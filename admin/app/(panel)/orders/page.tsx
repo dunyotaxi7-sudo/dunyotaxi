@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { carTypesApi, driversApi, ordersApi, passengersApi } from "@/lib/api";
 import { apiError } from "@/lib/axios";
-import { formatPhone, formatSom } from "@/lib/format";
+import { formatPhone, formatSom, toUzPhone } from "@/lib/format";
 import { rideStatusLabel } from "@/lib/strings";
 import type { ConnectMode } from "@/lib/types";
 import { DriverPicker } from "@/components/DriverPicker";
@@ -14,7 +14,8 @@ import { RequestLocationPrompt } from "@/components/RequestLocationPrompt";
 import { ErrorBlock } from "@/components/ui";
 
 type SelectedClient = {
-  id: string;
+  /** null for a caller we are about to create along with the order. */
+  id: string | null;
   full_name: string;
   phone: string;
   role: string;
@@ -80,10 +81,21 @@ export default function OrdersPage() {
     enabled: !selected && debounced.length >= 2,
   });
 
+  // "93 264 22 33", "+998 93 264 22 33" and "932642233" all normalise to the
+  // one form the database stores; anything else is a name, not a number.
+  const newCallerPhone = toUzPhone(debounced);
+
   const create = useMutation({
     mutationFn: () =>
       ordersApi.create({
-        passenger_id: selected!.id,
+        // An unregistered caller is created by the same request that takes
+        // their order — no detour to the Clients page mid-call.
+        ...(selected!.id
+          ? { passenger_id: selected!.id }
+          : {
+              passenger_phone: selected!.phone,
+              ...(selected!.full_name ? { passenger_name: selected!.full_name } : {}),
+            }),
         pickup: pickup!,
         destination: destination!,
         connect_mode: mode,
@@ -110,11 +122,26 @@ export default function OrdersPage() {
         <h3 className="font-semibold">Yo‘lovchi</h3>
         {selected ? (
           <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
-            <div>
-              <div className="text-sm font-medium">{selected.full_name}</div>
-              <div className="text-xs text-muted">
+            <div className="min-w-0 flex-1">
+              {selected.id ? (
+                <div className="text-sm font-medium">{selected.full_name}</div>
+              ) : (
+                // New caller: the name is optional, so offer it rather than
+                // demand it. Left blank, the account gets the same placeholder
+                // the app uses for an OTP signup that skipped it.
+                <input
+                  className="input h-8 text-sm"
+                  value={selected.full_name}
+                  onChange={(e) =>
+                    setSelected({ ...selected, full_name: e.target.value })
+                  }
+                  placeholder="Ism (ixtiyoriy)"
+                />
+              )}
+              <div className="text-xs text-muted mt-0.5">
                 {formatPhone(selected.phone)}
                 {selected.role === "driver" ? " · haydovchi" : ""}
+                {selected.id ? "" : " · yangi mijoz"}
               </div>
             </div>
             <button
@@ -163,14 +190,37 @@ export default function OrdersPage() {
                       </div>
                     </button>
                   ))
+                ) : newCallerPhone ? (
+                  // The common call-centre case: an unknown number. Pick it
+                  // here and the account is created with the order itself.
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelected({
+                        id: null,
+                        full_name: "",
+                        phone: newCallerPhone,
+                        role: "passenger",
+                      })
+                    }
+                    className="block w-full text-left px-3 py-2 rounded-md hover:bg-[var(--surface-2)]"
+                  >
+                    <div className="text-sm font-medium text-primary">
+                      + {formatPhone(newCallerPhone)} bilan yangi mijoz
+                    </div>
+                    <div className="text-xs text-muted">
+                      Buyurtma bilan birga yaratiladi — ismni keyin qo‘shsa
+                      ham bo‘ladi
+                    </div>
+                  </button>
                 ) : (
                   <div className="px-3 py-2 text-sm text-muted">
-                    Mijoz topilmadi.{" "}
+                    Mijoz topilmadi. Telefon raqamini to‘liq kiriting yoki{" "}
                     <Link
                       href="/passengers/new"
                       className="text-primary hover:underline"
                     >
-                      Mijozlar sahifasida yarating
+                      mijozlar sahifasida yarating
                     </Link>
                   </div>
                 )}

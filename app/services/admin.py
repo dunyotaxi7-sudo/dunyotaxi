@@ -589,14 +589,38 @@ async def create_order(
             raise ValueError("driver balance is below the limit")
 
     # Passenger — must already exist (created on the Clients page).
-    user = await db.get(User, payload.passenger_id)
-    if user is None:
-        raise ValueError("passenger not found")
+    # Either an existing client, or a caller we have never seen. Creating the
+    # account here is what keeps an operator on one screen during the call.
+    created_passenger = False
+    if payload.passenger_id is not None:
+        user = await db.get(User, payload.passenger_id)
+        if user is None:
+            raise ValueError("passenger not found")
+    else:
+        user = await auth_service.get_user_by_phone(db, payload.passenger_phone)
+        if user is None:
+            # Name is optional: "Yangi foydalanuvchi" is the same placeholder
+            # the app uses for an OTP signup that skipped it.
+            user, created_passenger = await auth_service.get_or_create_user(
+                db, payload.passenger_phone, payload.passenger_name, "passenger"
+            )
+            await db.flush()
     # One number, one purpose — the same rule the app enforces, so an order
     # cannot be created by phone that the passenger could not have placed.
     if await driver_service.has_driver_profile(db, user.id):
         raise ValueError(
             "Bu raqam haydovchiga tegishli — unga buyurtma yaratib bo'lmaydi"
+        )
+    if created_passenger:
+        await log_action(
+            db, admin_id, "passenger_create", entity_type="user",
+            entity_id=str(user.id),
+            new_value={
+                "phone": user.phone,
+                "full_name": user.full_name,
+                "source": "order_form",
+            },
+            ip_address=ip,
         )
     # Capture now — attributes expire after the commit inside create_admin_ride.
     passenger_id = user.id

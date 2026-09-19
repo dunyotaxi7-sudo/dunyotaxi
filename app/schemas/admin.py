@@ -467,8 +467,21 @@ class OrderLocation(BaseModel):
 
 
 class AdminOrderCreate(BaseModel):
-    # An existing client (created on the Clients page) — orders never create one.
-    passenger_id: uuid.UUID
+    """An operator's order, for an existing client or a brand-new caller.
+
+    Call-centre callers are usually not registered, and sending the operator
+    off to the Clients page mid-call to create an account first was the slow
+    part of taking an order. So a phone number is accepted in place of an id:
+    unknown numbers get an account as a by-product of taking the order.
+    """
+
+    # Either an existing client...
+    passenger_id: uuid.UUID | None = None
+    # ...or the number they are calling from. Created if unknown.
+    passenger_phone: str | None = Field(default=None, max_length=13)
+    # Optional even for a new client — the operator types a number and nothing
+    # else. Matches what the app itself uses when someone signs up by OTP.
+    passenger_name: str | None = Field(default=None, max_length=100)
     pickup: OrderLocation
     destination: OrderLocation
     distance_km: float | None = Field(default=None, ge=0)
@@ -478,6 +491,22 @@ class AdminOrderCreate(BaseModel):
     #   "assign" → force-assign the chosen driver (no accept step)
     connect_mode: str = Field(default="auto")
     driver_id: uuid.UUID | None = None
+
+    @field_validator("passenger_phone")
+    @classmethod
+    def _check_phone(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip()
+        if not PHONE_RE.match(v):
+            raise ValueError("phone must match +998XXXXXXXXX")
+        return v
+
+    @model_validator(mode="after")
+    def _one_way_to_name_the_passenger(self):
+        if bool(self.passenger_id) == bool(self.passenger_phone):
+            raise ValueError("give either passenger_id or passenger_phone")
+        return self
 
 
 class AdminOrderOut(BaseModel):
