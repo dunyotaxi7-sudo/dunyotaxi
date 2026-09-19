@@ -672,11 +672,14 @@ async def create_order(
     passenger_name = user.full_name
 
     # Create the ride (commits; also persists a newly-created passenger).
+    dest = payload.destination
     ride = await ride_service.create_admin_ride(
         db, passenger_id,
         from_lat=payload.pickup.lat, from_lng=payload.pickup.lng,
-        to_lat=payload.destination.lat, to_lng=payload.destination.lng,
-        from_address=payload.pickup.address, to_address=payload.destination.address,
+        to_lat=dest.lat if dest else None,
+        to_lng=dest.lng if dest else None,
+        from_address=payload.pickup.address,
+        to_address=dest.address if dest else None,
         distance_km=payload.distance_km, payment_method="cash",
     )
     ride_id = ride.id
@@ -719,6 +722,7 @@ async def create_order(
         "driver_id": driver_now,
         "price_sum": price_sum,
         "distance_km": distance_km,
+        "fare_mode": ride.fare_mode,
     }
 
 

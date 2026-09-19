@@ -408,6 +408,8 @@ export interface RecentPickup {
   last_used_at: string | null;
 }
 
+export type FareMode = "fixed" | "meter";
+
 export interface CreateOrderInput {
   /** An existing client... */
   passenger_id?: string;
@@ -415,7 +417,8 @@ export interface CreateOrderInput {
   passenger_phone?: string;
   passenger_name?: string;
   pickup: OrderLocation;
-  destination: OrderLocation;
+  /** Omitted for a metered order — priced from the distance actually driven. */
+  destination?: OrderLocation | null;
   distance_km?: number;
   connect_mode: ConnectMode;
   driver_id?: string | null;
@@ -431,6 +434,7 @@ export interface AdminOrderResult {
   driver_id: string | null;
   price_sum: number | null;
   distance_km: string | null;
+  fare_mode: FareMode;
 }
 
 export type LocationRequestStatus = "pending" | "shared" | "declined";

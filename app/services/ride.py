@@ -317,28 +317,40 @@ async def create_admin_ride(
     *,
     from_lat: float,
     from_lng: float,
-    to_lat: float,
-    to_lng: float,
+    to_lat: float | None = None,
+    to_lng: float | None = None,
     from_address: str,
-    to_address: str,
+    to_address: str | None = None,
     distance_km: float | None = None,
     payment_method: str = "cash",
 ) -> Ride:
     """Create a ride on a passenger's behalf (admin manual order). Same pricing
-    and service-area guard as a passenger-created ride, but no promo."""
-    q = await estimate(
-        db,
-        from_lat=from_lat, from_lng=from_lng,
-        to_lat=to_lat, to_lng=to_lng,
-        distance_km=distance_km, promo_code=None,
-        at=datetime.now(),
-    )
+    and service-area guard as a passenger-created ride, but no promo.
+
+    With no destination the ride is metered: there is nothing to quote against,
+    so it carries no price until the meter settles it at completion.
+    """
+    metered = to_lat is None or to_lng is None
+    if metered:
+        # Still guard the pickup — estimate() is what checks the service area,
+        # and a metered order must not start outside it either.
+        service_area.check_ride_area(from_lat, from_lng)
+        q = {"distance_km": None, "duration_min": None, "final_price": None}
+    else:
+        q = await estimate(
+            db,
+            from_lat=from_lat, from_lng=from_lng,
+            to_lat=to_lat, to_lng=to_lng,
+            distance_km=distance_km, promo_code=None,
+            at=datetime.now(),
+        )
     ride = Ride(
         passenger_id=passenger_id,
         from_location=point_wkt(from_lat, from_lng),
-        to_location=point_wkt(to_lat, to_lng),
+        to_location=None if metered else point_wkt(to_lat, to_lng),
         from_address=from_address,
-        to_address=to_address,
+        to_address=None if metered else to_address,
+        fare_mode="meter" if metered else "fixed",
         distance_km=q["distance_km"],
         duration_min=q["duration_min"],
         price_sum=q["final_price"],

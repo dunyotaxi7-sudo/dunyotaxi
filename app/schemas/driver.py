@@ -66,7 +66,7 @@ class AvailableOrder(BaseModel):
     """An open order shown on the driver's list (marketplace dispatch)."""
     ride_id: uuid.UUID
     from_address: str
-    to_address: str
+    to_address: str | None = None
     price_sum: int | None = None
     car_type: str
     payment_method: str
@@ -122,7 +122,7 @@ class WalletTx(BaseModel):
 class DriverRideHistory(BaseModel):
     ride_id: uuid.UUID
     from_address: str
-    to_address: str
+    to_address: str | None = None
     distance_km: Decimal | None = None
     price_sum: int | None = None
     driver_earning: int | None = None

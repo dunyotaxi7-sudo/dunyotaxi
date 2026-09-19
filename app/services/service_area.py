@@ -77,10 +77,18 @@ def is_within_service_area(lat: float, lng: float) -> bool:
 
 
 def check_ride_area(
-    from_lat: float, from_lng: float, to_lat: float, to_lng: float
+    from_lat: float, from_lng: float,
+    to_lat: float | None = None, to_lng: float | None = None,
 ) -> None:
-    """Raise :class:`OutsideServiceArea` if pickup or destination is outside."""
+    """Raise :class:`OutsideServiceArea` if pickup or destination is outside.
+
+    A metered ride has no destination to check — only the pickup is validated.
+    Where it ends up is not known when the order is placed, so the guard does
+    what it can rather than nothing.
+    """
     if not is_within_service_area(from_lat, from_lng):
         raise OutsideServiceArea("pickup")
+    if to_lat is None or to_lng is None:
+        return
     if not is_within_service_area(to_lat, to_lng):
         raise OutsideServiceArea("destination")

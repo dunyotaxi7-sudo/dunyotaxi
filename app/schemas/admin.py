@@ -312,7 +312,7 @@ class LiveRideRow(BaseModel):
     driver_name: str | None = None
     driver_phone: str | None = None
     from_address: str
-    to_address: str
+    to_address: str | None = None
     price_sum: int | None = None
     status: str
     created_at: datetime | None = None
@@ -340,7 +340,7 @@ class AdminRideRow(BaseModel):
     passenger_name: str | None = None
     driver_name: str | None = None
     from_address: str
-    to_address: str
+    to_address: str | None = None
     distance_km: Decimal | None = None
     price_sum: int | None = None
     status: str
@@ -358,11 +358,11 @@ class AdminRideDetail(BaseModel):
     id: uuid.UUID
     status: str
     from_address: str
-    to_address: str
+    to_address: str | None = None
     from_lat: float
     from_lng: float
-    to_lat: float
-    to_lng: float
+    to_lat: float | None = None
+    to_lng: float | None = None
     distance_km: Decimal | None = None
     duration_min: int | None = None
     price_sum: int | None = None
@@ -492,7 +492,9 @@ class AdminOrderCreate(BaseModel):
     # else. Matches what the app itself uses when someone signs up by OTP.
     passenger_name: str | None = Field(default=None, max_length=100)
     pickup: OrderLocation
-    destination: OrderLocation
+    # Omitted for a metered order — "just drive, I'll direct him". The fare is
+    # then settled from the distance actually driven, not quoted up front.
+    destination: OrderLocation | None = None
     distance_km: float | None = Field(default=None, ge=0)
     # How the order reaches a driver:
     #   "auto"   → nearest online driver (normal dispatch)
@@ -526,8 +528,10 @@ class AdminOrderOut(BaseModel):
     passenger_phone: str
     passenger_name: str
     driver_id: uuid.UUID | None = None
+    # Null for a metered order: there is no price until the meter settles it.
     price_sum: int | None = None
     distance_km: Decimal | None = None
+    fare_mode: str = "fixed"
 
 
 class AuditLogPublic(ORMModel):

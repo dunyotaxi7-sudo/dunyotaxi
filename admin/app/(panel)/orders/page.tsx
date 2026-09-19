@@ -107,7 +107,8 @@ export default function OrdersPage() {
               ...(selected!.full_name ? { passenger_name: selected!.full_name } : {}),
             }),
         pickup: pickup!,
-        destination: destination!,
+        // No destination → metered: priced from the distance actually driven.
+        destination: destination,
         connect_mode: mode,
         driver_id: mode === "auto" ? null : driverId || null,
       }),
@@ -117,7 +118,6 @@ export default function OrdersPage() {
     setFormError(null);
     if (!selected) return setFormError("Mijozni tanlang.");
     if (!pickup) return setFormError("Olib ketish manzilini tanlang.");
-    if (!destination) return setFormError("Borish manzilini tanlang.");
     if (mode !== "auto" && !driverId)
       return setFormError("Haydovchini tanlang.");
     create.mutate();
@@ -268,6 +268,14 @@ export default function OrdersPage() {
           </div>
         )}
 
+        {!destination && pickup && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-800">
+            Borish manzili tanlanmagan — <b>hisoblagichli buyurtma</b>. Narx
+            oldindan aytilmaydi, sayohat oxirida bosib o‘tilgan masofa bo‘yicha
+            hisoblanadi.
+          </div>
+        )}
+
         <OrderLocationPicker
           pickup={pickup}
           destination={destination}
@@ -352,8 +360,16 @@ export default function OrdersPage() {
             Buyurtma yaratildi ✓
           </div>
           <div className="text-sm text-foreground/80">
-            Holat: <b>{rideStatusLabel[result.status] ?? result.status}</b> ·
-            Narx: <b>{formatSom(result.price_sum)}</b>
+            Holat: <b>{rideStatusLabel[result.status] ?? result.status}</b> ·{" "}
+            {result.fare_mode === "meter" ? (
+              <>
+                Narx: <b>hisoblagich bo‘yicha</b> (sayohat oxirida)
+              </>
+            ) : (
+              <>
+                Narx: <b>{formatSom(result.price_sum)}</b>
+              </>
+            )}
           </div>
           <div className="text-sm text-foreground/80">
             Yo‘lovchi: {result.passenger_name} ({result.passenger_phone})

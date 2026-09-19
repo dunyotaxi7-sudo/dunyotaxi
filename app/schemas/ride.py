@@ -66,7 +66,7 @@ class RidePublic(ORMModel):
     passenger_id: uuid.UUID
     driver_id: uuid.UUID | None = None
     from_address: str
-    to_address: str
+    to_address: str | None = None
     distance_km: Decimal | None = None
     duration_min: int | None = None
     price_sum: int | None = None
@@ -115,7 +115,7 @@ class RideDriverInfo(BaseModel):
 class RideOfferDetails(BaseModel):
     ride_id: uuid.UUID
     from_address: str
-    to_address: str
+    to_address: str | None = None
     distance_km: Decimal | None = None
     price_sum: int | None = None
     payment_method: str
@@ -129,11 +129,11 @@ class RideDriverView(BaseModel):
     id: uuid.UUID
     status: str
     from_address: str
-    to_address: str
+    to_address: str | None = None
     from_lat: float
     from_lng: float
-    to_lat: float
-    to_lng: float
+    to_lat: float | None = None
+    to_lng: float | None = None
     distance_km: Decimal | None = None
     price_sum: int | None = None
     payment_method: str
