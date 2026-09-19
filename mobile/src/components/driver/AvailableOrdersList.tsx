@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { driverApi } from "@/lib/api/driver";
+import { apiError } from "@/lib/api/client";
 import { formatKm, formatSom } from "@/lib/format";
 import { t } from "@/lib/strings";
 import { paymentLabel } from "@/lib/strings";
@@ -44,6 +45,15 @@ function sortOrders(orders: AvailableOrder[], mode: SortMode): AvailableOrder[] 
  * refreshes the list. Ranked (nearest / highest fare), capped, and stably
  * ordered so it stays usable when many orders arrive at once.
  */
+/** Turns a claim refusal into something a driver can act on. */
+function claimErrorText(err: unknown): string {
+  const detail = apiError(err);
+  if (detail.includes("finish your current ride")) return t.driver.claim.onTrip;
+  if (detail.includes("balance")) return t.driver.claim.lowBalance;
+  if (detail.includes("already taken")) return t.driver.claim.taken;
+  return detail;
+}
+
 export function AvailableOrdersList({
   coords,
   fullScreen = false,
@@ -68,9 +78,13 @@ export function AvailableOrdersList({
     mutationFn: (rideId: string) => driverApi.claimRide(rideId),
     onSuccess: (_d, rideId) =>
       router.push({ pathname: "/pickup/[rideId]", params: { rideId } }),
-    onError: () => {
+    onError: (err) => {
       void orders.refetch();
-      Alert.alert("Buyurtma allaqachon olingan yoki mavjud emas");
+      // Three quite different things can refuse a claim — the order was taken,
+      // this driver is still on a trip, or their balance is below the floor.
+      // Showing one message for all three sent us hunting through server logs
+      // to answer "why can't I take this order?", so say which it was.
+      Alert.alert(claimErrorText(err));
     },
   });
 

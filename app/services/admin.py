@@ -302,21 +302,27 @@ async def cancel_ride(
         raise ValueError("ride not found")
     if ride.status in ("completed", "cancelled"):
         raise ValueError("ride already finished")
-    ride.status = "cancelled"
-    # The DB CHECK constraint only allows 'passenger' | 'driver' | 'system';
-    # an admin/panel cancellation is recorded as 'system' (the reason text below
-    # notes it was the administrator). Using 'admin' here violates the check and
-    # rolls back the whole transaction → the cancel silently 500s.
-    ride.cancelled_by = "system"
-    ride.cancel_reason = reason or "Administrator tomonidan bekor qilindi"
+
+    reason_text = reason or "Administrator tomonidan bekor qilindi"
     await log_action(
         db, admin_id, "ride_cancel", entity_type="ride",
-        entity_id=str(ride_id), new_value={"reason": ride.cancel_reason},
+        entity_id=str(ride_id), new_value={"reason": reason_text},
         ip_address=ip,
     )
-    await db.commit()
-    await db.refresh(ride)
-    return ride
+    # Delegated rather than setting the status here, so a panel cancellation
+    # does everything a driver's or passenger's cancellation does: stamp
+    # cancelled_at, revoke any offer still open, notify both sides — and above
+    # all release the driver from the in-memory active-ride registry.
+    #
+    # Writing the columns directly left that registry pointing at the cancelled
+    # ride, so the driver stayed "on a trip" for the life of the process: every
+    # later claim came back 409 "finish your current ride first", and the only
+    # cure was an API restart. set_status records cancelled_by as 'system' when
+    # neither a driver nor a passenger is given, which is what the DB CHECK
+    # allows and what the reason text already explains.
+    return await ride_service.set_status(
+        db, ride_id, "cancelled", cancel_reason=reason_text
+    )
 
 
 async def ride_detail(db: AsyncSession, ride_id: uuid.UUID) -> dict | None:

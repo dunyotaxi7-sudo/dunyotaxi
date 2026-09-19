@@ -320,6 +320,12 @@ export const t = {
       waitNoLocation: "Joylashuv aniqlanmadi — kutishni boshlab bo'lmaydi.",
       waitFailed: "Kutishni boshlab bo'lmadi. Mijozga yaqinroq boring.",
     },
+    claim: {
+      taken: "Buyurtma allaqachon olingan",
+      onTrip: "Avval joriy sayohatni yakunlang",
+      lowBalance: "Hisobingizda mablag' yetarli emas — hamyonni to'ldiring",
+    },
+
     trip: {
       title: "Sayohat",
       destination: "Manzil",
