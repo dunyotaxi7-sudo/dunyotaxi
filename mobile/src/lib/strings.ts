@@ -323,6 +323,9 @@ export const t = {
     trip: {
       title: "Sayohat",
       destination: "Manzil",
+      // Metered ride: the passenger directs the driver, and the fare comes
+      // from the distance driven rather than a price agreed up front.
+      noDestination: "Manzil ko'rsatilmagan · hisoblagich bo'yicha",
       fare: "Narx",
       finish: "Sayohatni tugatish",
     },

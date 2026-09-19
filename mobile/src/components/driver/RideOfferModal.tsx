@@ -141,7 +141,7 @@ export function RideOfferModal({
             <View style={styles.route}>
               <PlaceRow color={colors.primary} label={t.driver.offer.from} value={d.from_address} />
               <View style={styles.routeLine} />
-              <PlaceRow color={colors.danger} label={t.driver.offer.to} value={d.to_address} />
+              <PlaceRow color={colors.danger} label={t.driver.offer.to} value={d.to_address ?? t.driver.trip.noDestination} />
             </View>
 
             <View style={styles.metrics}>

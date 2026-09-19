@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { driverApi } from "@/lib/api/driver";
 import { formatKm, formatSom } from "@/lib/format";
+import { t } from "@/lib/strings";
 import { paymentLabel } from "@/lib/strings";
 import { colors, radius, spacing } from "@/theme/colors";
 import type { AvailableOrder } from "@/lib/types";
@@ -122,7 +123,8 @@ export function AvailableOrdersList({
                 <Text style={{ color: colors.primary }}>●</Text> {o.from_address}
               </Text>
               <Text style={styles.addr} numberOfLines={1}>
-                <Text style={{ color: colors.danger }}>●</Text> {o.to_address}
+                <Text style={{ color: colors.danger }}>●</Text>{" "}
+                {o.to_address ?? t.driver.trip.noDestination}
               </Text>
               <View style={styles.rowBottom}>
                 <Text style={styles.meta}>

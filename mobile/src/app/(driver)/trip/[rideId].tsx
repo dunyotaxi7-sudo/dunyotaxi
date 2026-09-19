@@ -25,10 +25,19 @@ export default function DriverTripScreen() {
   });
   const ride = view.data;
 
+  // A metered ride has no destination ("just drive, I'll direct him"), so
+  // there is nothing to route to, mark, or navigate at. Null coordinates must
+  // never reach the map: the native marker asserts non-null and takes the
+  // whole app down with it.
+  const dest =
+    ride && ride.to_lat != null && ride.to_lng != null
+      ? { lat: ride.to_lat, lng: ride.to_lng }
+      : null;
+
   // Real road route pickup → dropoff (straight-line fallback).
   const routePoints = useRoutePoints(
     ride ? { lat: ride.from_lat, lng: ride.from_lng } : null,
-    ride ? { lat: ride.to_lat, lng: ride.to_lng } : null,
+    dest,
   );
 
   const fitted = useRef(false);
@@ -37,10 +46,11 @@ export default function DriverTripScreen() {
       fitted.current = true;
       setTimeout(
         () =>
-          mapRef.current?.fit([
-            { lat: ride.from_lat, lng: ride.from_lng },
-            { lat: ride.to_lat, lng: ride.to_lng },
-          ]),
+          mapRef.current?.fit(
+            dest
+              ? [{ lat: ride.from_lat, lng: ride.from_lng }, dest]
+              : [{ lat: ride.from_lat, lng: ride.from_lng }],
+          ),
         350,
       );
     }
@@ -72,7 +82,9 @@ export default function DriverTripScreen() {
 
   const markers: MapMarker[] = [
     { id: "pickup", coordinate: { lat: ride.from_lat, lng: ride.from_lng }, kind: "pickup" },
-    { id: "dropoff", coordinate: { lat: ride.to_lat, lng: ride.to_lng }, kind: "dropoff" },
+    ...(dest
+      ? [{ id: "dropoff", coordinate: dest, kind: "dropoff" as const }]
+      : []),
   ];
 
   return (
@@ -83,7 +95,10 @@ export default function DriverTripScreen() {
           ref={mapRef}
           markers={markers}
           route={routePoints}
-          initialCamera={{ center: { lat: ride.to_lat, lng: ride.to_lng }, zoom: 13 }}
+          initialCamera={{
+            center: dest ?? { lat: ride.from_lat, lng: ride.from_lng },
+            zoom: 13,
+          }}
           showUserLocation
         />
       </View>
@@ -96,19 +111,23 @@ export default function DriverTripScreen() {
         <View style={styles.handle} />
 
         <Text style={styles.label}>{t.driver.trip.destination}</Text>
-        <Text style={styles.addr} numberOfLines={2}>{ride.to_address}</Text>
+        <Text style={styles.addr} numberOfLines={2}>
+          {ride.to_address ?? t.driver.trip.noDestination}
+        </Text>
 
         <View style={styles.fareRow}>
           <Text style={styles.fare}>{formatSom(ride.price_sum)}</Text>
           <Text style={styles.pay}>{paymentLabel(ride.payment_method)}</Text>
         </View>
 
-        <Pressable
-          style={styles.navBtn}
-          onPress={() => void openExternalNav(ride.to_lat, ride.to_lng)}
-        >
-          <Text style={styles.navText}>🧭 {t.driver.pickup.navigation}</Text>
-        </Pressable>
+        {dest ? (
+          <Pressable
+            style={styles.navBtn}
+            onPress={() => void openExternalNav(dest.lat, dest.lng)}
+          >
+            <Text style={styles.navText}>🧭 {t.driver.pickup.navigation}</Text>
+          </Pressable>
+        ) : null}
 
         <View style={{ marginTop: spacing(3) }}>
           <WaitingMeter

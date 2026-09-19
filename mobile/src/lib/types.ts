@@ -75,7 +75,8 @@ export interface DriverTodayStats {
 export interface RideOfferDetails {
   ride_id: string;
   from_address: string;
-  to_address: string;
+  /** Null on a metered ride — no destination was given. */
+  to_address: string | null;
   distance_km: string | null;
   price_sum: number | null;
   payment_method: PaymentMethod;
@@ -114,7 +115,8 @@ export interface WalletTx {
 export interface DriverRideHistory {
   ride_id: string;
   from_address: string;
-  to_address: string;
+  /** Null on a metered ride — no destination was given. */
+  to_address: string | null;
   distance_km: string | null;
   price_sum: number | null;
   driver_earning: number | null;
@@ -145,11 +147,12 @@ export interface RideDriverView {
   id: string;
   status: RideStatus;
   from_address: string;
-  to_address: string;
+  /** Null on a metered ride — no destination was given. */
+  to_address: string | null;
   from_lat: number;
   from_lng: number;
-  to_lat: number;
-  to_lng: number;
+  to_lat: number | null;
+  to_lng: number | null;
   distance_km: string | null;
   price_sum: number | null;
   payment_method: PaymentMethod;
@@ -163,7 +166,8 @@ export interface RideDriverView {
 export interface AvailableOrder {
   ride_id: string;
   from_address: string;
-  to_address: string;
+  /** Null on a metered ride — no destination was given. */
+  to_address: string | null;
   price_sum: number | null;
   car_type: string;
   payment_method: PaymentMethod;
@@ -225,7 +229,8 @@ export interface RidePublic {
   passenger_id: string;
   driver_id: string | null;
   from_address: string;
-  to_address: string;
+  /** Null on a metered ride — no destination was given. */
+  to_address: string | null;
   distance_km: string | null;
   duration_min: number | null;
   price_sum: number | null;
