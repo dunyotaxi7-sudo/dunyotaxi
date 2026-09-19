@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 import uuid
 from datetime import datetime
 from decimal import Decimal
@@ -23,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
-from app.core.redis_client import get_redis
+from app.core.redis_client import get_redis, ride_meter_key
 from app.models import Driver, Payment, PromoCode, PromoUsage, Ride, Wallet
 from app.services import location, matching, pricing, push, service_area
 from app.services.geo import haversine_km, haversine_m, point_wkt
@@ -79,6 +80,86 @@ def pending_offer_for_driver(driver_id: str) -> str | None:
     return None
 
 
+# ── Distance meter ────────────────────────────────────────────────────
+# Measured server-side from the GPS the driver already streams, not reported by
+# the app. Once kilometres are money, a number the app computes is a number the
+# app can inflate; this one is derived from data we hold, and the trip's GPS
+# trail remains as evidence if a passenger disputes the fare.
+
+# Below this, movement is GPS jitter rather than travel. The anchor is kept
+# (not advanced) until movement exceeds it, so a slowly creeping car still has
+# its distance counted once it adds up — only a parked one is ignored.
+METER_MIN_MOVE_M = 12.0
+# A fix implying faster than this is noise or spoofing, not a car. ~200 km/h.
+METER_MAX_SPEED_MPS = 55.0
+# Two fixes can land almost together — the socket and the background HTTP
+# stream both report, or a burst arrives after a reconnect. Dividing by that
+# near-zero gap makes ordinary movement look supersonic, and the distance would
+# be silently dropped, shortchanging the driver on every reconnect. So speed is
+# judged over at least the interval the app streams at, which is the shortest
+# gap that carries any information about how fast the car was actually going.
+#
+# The honest fix is for the app to send the fix's own timestamp, and then this
+# floor can go; until the app ships that, arrival time is all the server has.
+METER_MIN_DT_SECONDS = 5.0
+# Long enough to outlive any trip, short enough not to litter Redis.
+METER_TTL_SECONDS = 24 * 3600
+
+
+async def start_meter(r, ride_id: str) -> None:
+    """Open the meter for a metered ride. Its existence is what tells the
+    location stream to measure, so no per-fix database lookup is needed."""
+    key = ride_meter_key(ride_id)
+    await r.hset(key, mapping={"m": "0"})
+    await r.expire(key, METER_TTL_SECONDS)
+
+
+async def read_meter_km(r, ride_id: str) -> Decimal:
+    """Metres accumulated so far, as kilometres."""
+    raw = await r.hget(ride_meter_key(ride_id), "m")
+    try:
+        metres = float(raw) if raw is not None else 0.0
+    except (TypeError, ValueError):
+        metres = 0.0
+    return Decimal(str(round(metres / 1000, 2)))
+
+
+async def _meter_add(r, ride_id: str, lat: float, lng: float) -> None:
+    """Fold one GPS fix into the meter. No-op unless the meter is open."""
+    key = ride_meter_key(ride_id)
+    anchor = await r.hgetall(key)
+    if not anchor:
+        return  # not a metered ride, or the meter is closed
+
+    now = time.time()
+    prev_lat, prev_lng = anchor.get("lat"), anchor.get("lng")
+    if prev_lat is None or prev_lng is None:
+        # First fix of the trip: nothing to measure from yet.
+        await r.hset(key, mapping={"lat": str(lat), "lng": str(lng), "ts": str(now)})
+        await r.expire(key, METER_TTL_SECONDS)
+        return
+
+    try:
+        moved = haversine_m(float(prev_lat), float(prev_lng), lat, lng)
+        elapsed = max(now - float(anchor.get("ts", now)), METER_MIN_DT_SECONDS)
+    except (TypeError, ValueError):
+        await r.hset(key, mapping={"lat": str(lat), "lng": str(lng), "ts": str(now)})
+        return
+
+    if moved / elapsed > METER_MAX_SPEED_MPS:
+        # Implausible jump — re-anchor here rather than bill for it.
+        await r.hset(key, mapping={"lat": str(lat), "lng": str(lng), "ts": str(now)})
+        await r.expire(key, METER_TTL_SECONDS)
+        return
+
+    if moved < METER_MIN_MOVE_M:
+        return  # jitter: keep the old anchor so real creep still accrues
+
+    await r.hincrbyfloat(key, "m", moved)
+    await r.hset(key, mapping={"lat": str(lat), "lng": str(lng), "ts": str(now)})
+    await r.expire(key, METER_TTL_SECONDS)
+
+
 async def relay_driver_location(r, driver_id: str, lat: float, lng: float) -> None:
     """Store a driver's live position (Redis GEO) and, if they're on a ride,
     relay it to that passenger. Shared by the location WS and the HTTP endpoint
@@ -87,6 +168,7 @@ async def relay_driver_location(r, driver_id: str, lat: float, lng: float) -> No
     active = get_active_ride_for_driver(driver_id)
     if active is not None:
         ride_id, passenger_user_id = active
+        await _meter_add(r, ride_id, lat, lng)
         await passenger_ws.send(passenger_user_id, {
             "type": "driver_location",
             "ride_id": ride_id,
@@ -838,6 +920,11 @@ async def set_status(
     elif target == "ongoing":
         ride.status = "ongoing"
         ride.started_at = now
+        if ride.fare_mode == "meter":
+            # Opening the meter is what makes the location stream start
+            # measuring — see _meter_add. Nothing is billed before this point,
+            # so the drive to the pickup is never on the passenger's fare.
+            await start_meter(get_redis(), str(ride_id))
     elif target == "completed":
         ride.status = "completed"
         ride.completed_at = now
@@ -950,10 +1037,29 @@ async def complete_ride(db: AsyncSession, ride_id: uuid.UUID,
     if not can_transition(ride.status, "completed"):
         raise RideError(f"cannot complete from {ride.status}")
 
+    cfg = await pricing.get_active_config(db)
+
+    # A metered ride has no quoted price: the fare is settled here, from the
+    # distance the server measured while the trip ran. Done before the waiting
+    # charge so that charge is added on top, exactly as for a fixed ride.
+    if ride.fare_mode == "meter":
+        r = get_redis()
+        ride.metered_km = await read_meter_km(r, str(ride_id))
+        await r.delete(ride_meter_key(str(ride_id)))
+        if cfg is not None:
+            tier = await pricing.tier_multiplier(db, ride.car_type)
+            price, _night, _dur = pricing.compute_fare(
+                cfg, float(ride.metered_km), at=datetime.now(),
+                tier_multiplier=tier,
+            )
+            ride.price_sum = price
+        # distance_km is the estimate for a fixed ride; for a metered one the
+        # measured distance is the only distance there is, so report that.
+        ride.distance_km = ride.metered_km
+
     # Finalize the waiting meter and fold its charge into the fare, so the
     # payment total AND the DB commission both include it.
     _finalize_waiting(ride)
-    cfg = await pricing.get_active_config(db)
     ride.waiting_charge = (
         pricing.compute_waiting_charge(cfg, ride.waiting_seconds) if cfg else 0
     )

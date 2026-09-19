@@ -43,6 +43,12 @@ def driver_meta_key(driver_id: str) -> str:
     return f"driver:meta:{driver_id}"
 
 
+def ride_meter_key(ride_id: str) -> str:
+    """Live distance meter for one metered ride: accumulated metres plus the
+    last GPS anchor it was measured from."""
+    return f"ride:meter:{ride_id}"
+
+
 def location_request_key(request_id: str) -> str:
     """Hash holding one operator→passenger location request and its answer."""
     return f"locreq:{request_id}"

@@ -37,11 +37,26 @@ class Ride(Base):
     from_location: Mapped[object] = mapped_column(
         Geography(geometry_type="POINT", srid=4326), nullable=False
     )
-    to_location: Mapped[object] = mapped_column(
-        Geography(geometry_type="POINT", srid=4326), nullable=False
+    # Nullable: a metered ride is "just drive, I'll direct him" — there is no
+    # destination when it is created. Required for fixed rides, enforced in the
+    # application since one column cannot be conditionally NOT NULL.
+    to_location: Mapped[object | None] = mapped_column(
+        Geography(geometry_type="POINT", srid=4326), nullable=True
     )
     from_address: Mapped[str] = mapped_column(String(200), nullable=False)
-    to_address: Mapped[str] = mapped_column(String(200), nullable=False)
+    to_address: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    # 'fixed'  — price quoted up front from the estimated distance (the norm).
+    # 'meter'  — no destination; priced at the end from the distance actually
+    #            driven, measured server-side from the driver's GPS stream.
+    fare_mode: Mapped[str] = mapped_column(
+        String(10), nullable=False, server_default="fixed", default="fixed"
+    )
+    # What the meter measured. Kept apart from distance_km (the up-front
+    # estimate) so the guess and the outcome are never confused.
+    metered_km: Mapped[Decimal] = mapped_column(
+        Numeric(6, 2), nullable=False, server_default="0", default=0
+    )
 
     distance_km: Mapped[Decimal | None] = mapped_column(Numeric(6, 2))
     duration_min: Mapped[int | None] = mapped_column(SmallInteger)

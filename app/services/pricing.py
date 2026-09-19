@@ -125,6 +125,19 @@ async def get_active_car_types(db: AsyncSession) -> list[CarType]:
     return list(res.scalars())
 
 
+async def tier_multiplier(db: AsyncSession, car_type: str | None) -> Decimal:
+    """The fare multiplier for one tier code, or 1 if it is unknown/unset.
+
+    A metered ride is priced when it ends rather than when it is quoted, so it
+    needs the multiplier on its own — the estimate path reads every tier at
+    once to build the selector.
+    """
+    for tier in await get_active_car_types(db):
+        if tier.code == car_type:
+            return Decimal(str(tier.multiplier))
+    return Decimal("1")
+
+
 async def eligible_car_classes(db: AsyncSession, car_type: str) -> list[str]:
     """Tiers that may serve a ``car_type`` order.
 
