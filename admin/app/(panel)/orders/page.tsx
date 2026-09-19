@@ -81,6 +81,16 @@ export default function OrdersPage() {
     enabled: !selected && debounced.length >= 2,
   });
 
+  // A repeat caller orders from the same place nearly every time, so their own
+  // history is the fastest pickup entry there is — no typing, no map. Only for
+  // an existing client: a caller being created with this order has no history.
+  const recentPickups = useQuery({
+    queryKey: ["recent-pickups", selected?.id],
+    queryFn: () => passengersApi.recentPickups(selected!.id!),
+    enabled: Boolean(selected?.id),
+    staleTime: 60_000,
+  });
+
   // "93 264 22 33", "+998 93 264 22 33" and "932642233" all normalise to the
   // one form the database stores; anything else is a name, not a number.
   const newCallerPhone = toUzPhone(debounced);
@@ -239,6 +249,25 @@ export default function OrdersPage() {
           passengerId={selected?.id ?? null}
           onLocation={setPickup}
         />
+        {(recentPickups.data?.length ?? 0) > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted">Avvalgi manzillari:</span>
+            {recentPickups.data!.map((p) => (
+              <button
+                key={`${p.address}-${p.lat}-${p.lng}`}
+                type="button"
+                title={p.address}
+                onClick={() =>
+                  setPickup({ lat: p.lat, lng: p.lng, address: p.address })
+                }
+                className="rounded-full border border-border px-3 py-1 text-xs hover:bg-[var(--surface-2)] max-w-[240px] truncate"
+              >
+                {p.address}
+              </button>
+            ))}
+          </div>
+        )}
+
         <OrderLocationPicker
           pickup={pickup}
           destination={destination}

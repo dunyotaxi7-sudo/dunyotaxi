@@ -32,6 +32,7 @@ import type {
   PricingConfig,
   PricingConfigUpdate,
   PromoCode,
+  RecentPickup,
   RequestOTPResponse,
   RidePublic,
   RideStatus,
@@ -239,6 +240,11 @@ export const passengersApi = {
   rides: (id: string) =>
     api
       .get<RidePublic[]>(`/admin/passengers/${id}/rides`)
+      .then((r) => r.data),
+  // Previous pickup points, for one-click reuse when they call again.
+  recentPickups: (id: string) =>
+    api
+      .get<RecentPickup[]>(`/admin/passengers/${id}/recent-pickups`)
       .then((r) => r.data),
 };
 

@@ -400,6 +400,14 @@ export interface OrderLocation {
   address: string;
 }
 
+/** A place this client has been collected from before. */
+export interface RecentPickup {
+  address: string;
+  lat: number;
+  lng: number;
+  last_used_at: string | null;
+}
+
 export interface CreateOrderInput {
   /** An existing client... */
   passenger_id?: string;

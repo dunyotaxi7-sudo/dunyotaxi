@@ -210,6 +210,50 @@ async def passenger_detail(db: AsyncSession, user_id: uuid.UUID) -> dict | None:
     }
 
 
+async def recent_pickups(
+    db: AsyncSession, user_id: uuid.UUID, limit: int = 3
+) -> list[dict]:
+    """Where this client has been picked up before, most recent first.
+
+    Regulars order from the same yard or mahalla nearly every time, so their
+    own history is the fastest way to fill in a pickup — no typing, no map.
+
+    Deduplicated by address rather than by coordinates: the same doorway
+    geocodes to slightly different points each time, which would otherwise fill
+    the list with one place repeated. A shortish window of recent rides is read
+    and folded in Python — cheaper and plainer than DISTINCT ON, and the window
+    only has to be long enough to yield `limit` distinct places.
+    """
+    rows = (await db.execute(
+        select(
+            Ride.from_address,
+            func.ST_Y(cast(Ride.from_location, Geometry)),
+            func.ST_X(cast(Ride.from_location, Geometry)),
+            Ride.created_at,
+        )
+        .where(Ride.passenger_id == user_id)
+        .order_by(Ride.created_at.desc())
+        .limit(30)
+    )).all()
+
+    seen: set[str] = set()
+    out: list[dict] = []
+    for address, lat, lng, created in rows:
+        key = (address or "").strip().lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append({
+            "address": address,
+            "lat": float(lat),
+            "lng": float(lng),
+            "last_used_at": created,
+        })
+        if len(out) >= limit:
+            break
+    return out
+
+
 async def list_rides(
     db: AsyncSession, *, status: str | None, date_from, date_to, limit: int
 ) -> list[dict]:

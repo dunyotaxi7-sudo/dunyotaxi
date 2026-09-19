@@ -79,6 +79,7 @@ from app.schemas.admin import (
     PassengerDetail,
     PassengerRow,
     PassengerUpdate,
+    RecentPickup,
     PricingConfigCreate,
     PricingConfigPublic,
     PricingConfigUpdate,
@@ -342,6 +343,20 @@ async def create_passenger(
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
     return PassengerDetail(**result)
+
+
+@router.get(
+    "/passengers/{user_id}/recent-pickups", response_model=list[RecentPickup]
+)
+async def passenger_recent_pickups(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    limit: int = 3,
+):
+    """This client's previous pickup points, for one-click reuse on the order
+    form. A repeat caller orders from the same place nearly every time."""
+    rows = await admin_service.recent_pickups(db, user_id, min(max(limit, 1), 10))
+    return [RecentPickup(**r) for r in rows]
 
 
 @router.get("/passengers/{user_id}", response_model=PassengerDetail)

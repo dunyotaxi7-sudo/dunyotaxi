@@ -466,6 +466,15 @@ class OrderLocation(BaseModel):
     address: str = Field(..., max_length=200)
 
 
+class RecentPickup(BaseModel):
+    """A place this client has been collected from before."""
+
+    address: str
+    lat: float
+    lng: float
+    last_used_at: datetime | None = None
+
+
 class AdminOrderCreate(BaseModel):
     """An operator's order, for an existing client or a brand-new caller.
 
