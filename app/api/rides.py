@@ -23,6 +23,7 @@ from app.schemas.ride import (
     RideCancel,
     RideDriverInfo,
     RideDriverView,
+    RateCard,
     RideMeter,
     RideOfferDetails,
     RidePublic,
@@ -67,6 +68,26 @@ async def car_types(
 
 
 # ── Estimate ──────────────────────────────────────────────────────────
+
+
+@router.get("/rate-card", response_model=RateCard)
+async def rate_card(db: AsyncSession = Depends(get_db)):
+    """The tariff behind a metered fare. Shown before ordering without a
+    destination, so nobody agrees to a price they cannot see the shape of."""
+    cfg = await pricing.get_active_config(db)
+    if cfg is None:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "pricing is not configured"
+        )
+    return RateCard(
+        base_fare=cfg.base_fare,
+        base_km=cfg.base_km,
+        price_per_km=cfg.price_per_km,
+        min_price=cfg.min_price,
+        night_multiplier=cfg.night_multiplier,
+        night_start=cfg.night_start.strftime("%H:%M"),
+        night_end=cfg.night_end.strftime("%H:%M"),
+    )
 
 
 @router.post("/estimate", response_model=EstimateResponse)

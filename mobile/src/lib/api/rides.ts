@@ -4,6 +4,8 @@ import type {
   EstimateResponse,
   PaymentMethod,
   RideDriverInfo,
+  CarTypeOption,
+  RateCard,
   RideMeter,
   RidePublic,
 } from "../types";
@@ -26,9 +28,10 @@ export interface EstimateInput {
 
 export interface RequestRideInput {
   from: Coords;
-  to: Coords;
+  /** Omitted for a metered ride — priced from the distance actually driven. */
+  to?: Coords | null;
   fromAddress: string;
-  toAddress: string;
+  toAddress?: string | null;
   paymentMethod: PaymentMethod;
   promoCode?: string;
   carType?: string;
@@ -38,6 +41,13 @@ export interface RequestRideInput {
 const geo = (c: Coords) => ({ lat: c.lat, lng: c.lng });
 
 export const ridesApi = {
+  /** Active service tiers, for a screen with no estimate to read them from. */
+  carTypes: () =>
+    api.get<CarTypeOption[]>("/rides/car-types").then((r) => r.data),
+
+  /** The tariff, for showing how a metered fare will be worked out. */
+  rateCard: () => api.get<RateCard>("/rides/rate-card").then((r) => r.data),
+
   /** Live taximeter: distance driven so far and what it currently costs. */
   meter: (rideId: string) =>
     api.get<RideMeter>(`/rides/${rideId}/meter`).then((r) => r.data),
@@ -64,9 +74,12 @@ export const ridesApi = {
     api
       .post<RidePublic>("/rides/request", {
         from_location: geo(input.from),
-        to_location: geo(input.to),
+        // Null both together: the server reads a missing destination as a
+        // metered ride, and a stray address without coordinates would be a
+        // destination it could neither route to nor price.
+        to_location: input.to ? geo(input.to) : null,
         from_address: input.fromAddress,
-        to_address: input.toAddress,
+        to_address: input.to ? input.toAddress : null,
         payment_method: input.paymentMethod,
         promo_code: input.promoCode || null,
         car_type: input.carType ?? "econom",

@@ -146,6 +146,24 @@ export interface DriverBonus {
   is_completed: boolean;
 }
 
+/** A service tier as the catalogue lists it. */
+export interface CarTypeOption {
+  code: string;
+  name_uz: string;
+  multiplier: number;
+}
+
+/** The tariff a metered fare is worked out from. */
+export interface RateCard {
+  base_fare: number;
+  base_km: string;
+  price_per_km: number;
+  min_price: number;
+  night_multiplier: string;
+  night_start: string;
+  night_end: string;
+}
+
 /** Live taximeter reading for a ride. */
 export interface RideMeter {
   ride_id: string;

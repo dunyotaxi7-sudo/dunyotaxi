@@ -52,9 +52,11 @@ class EstimateResponse(BaseModel):
 
 class RideRequest(BaseModel):
     from_location: GeoPoint
-    to_location: GeoPoint
+    # Omitted for a metered ride — the passenger directs the driver and the
+    # fare comes from the distance actually driven.
+    to_location: GeoPoint | None = None
     from_address: str = Field(..., max_length=200)
-    to_address: str = Field(..., max_length=200)
+    to_address: str | None = Field(default=None, max_length=200)
     distance_km: float | None = Field(default=None, ge=0)
     payment_method: str = Field(default="cash")
     promo_code: str | None = None
@@ -145,6 +147,19 @@ class RideDriverView(BaseModel):
     # 'fixed' or 'meter' — the trip screen shows a live meter for the latter.
     fare_mode: str = "fixed"
     metered_km: Decimal | None = None
+
+
+class RateCard(BaseModel):
+    """The tariff, so a passenger ordering without a destination can see how
+    the fare will be worked out before they commit to it."""
+
+    base_fare: int
+    base_km: Decimal
+    price_per_km: int
+    min_price: int
+    night_multiplier: Decimal
+    night_start: str
+    night_end: str
 
 
 class RideMeter(BaseModel):

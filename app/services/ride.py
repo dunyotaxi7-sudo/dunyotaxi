@@ -334,22 +334,43 @@ async def estimate(db: AsyncSession, *, from_lat, from_lng, to_lat, to_lng,
 
 async def create_ride(db: AsyncSession, passenger_id: uuid.UUID, req) -> Ride:
     car_type = getattr(req, "car_type", None) or "econom"
-    q = await estimate(
-        db,
-        from_lat=req.from_location.lat, from_lng=req.from_location.lng,
-        to_lat=req.to_location.lat, to_lng=req.to_location.lng,
-        distance_km=req.distance_km, promo_code=req.promo_code,
-        at=datetime.now(), car_type=car_type,
-    )
+    metered = req.to_location is None
+    if metered and not settings.allow_metered_orders:
+        raise RideError(
+            "Hisoblagichli buyurtmalar hozircha mavjud emas — "
+            "borish manzilini tanlang"
+        )
+
+    if metered:
+        # Nothing to quote against: only the pickup can be validated, and the
+        # fare is settled from the meter when the trip ends. A promo has no
+        # price to discount yet, so it is not applied here.
+        service_area.check_ride_area(req.from_location.lat, req.from_location.lng)
+        q = {
+            "distance_km": None, "duration_min": None, "final_price": None,
+            "car_type": car_type, "discount": 0,
+        }
+    else:
+        q = await estimate(
+            db,
+            from_lat=req.from_location.lat, from_lng=req.from_location.lng,
+            to_lat=req.to_location.lat, to_lng=req.to_location.lng,
+            distance_km=req.distance_km, promo_code=req.promo_code,
+            at=datetime.now(), car_type=car_type,
+        )
     if req.payment_method not in {"cash", "payme", "click", "uzum", "wallet"}:
         raise RideError("invalid payment method")
 
     ride = Ride(
         passenger_id=passenger_id,
         from_location=point_wkt(req.from_location.lat, req.from_location.lng),
-        to_location=point_wkt(req.to_location.lat, req.to_location.lng),
+        to_location=(
+            None if metered
+            else point_wkt(req.to_location.lat, req.to_location.lng)
+        ),
         from_address=req.from_address,
-        to_address=req.to_address,
+        to_address=None if metered else req.to_address,
+        fare_mode="meter" if metered else "fixed",
         distance_km=q["distance_km"],
         duration_min=q["duration_min"],
         price_sum=q["final_price"],

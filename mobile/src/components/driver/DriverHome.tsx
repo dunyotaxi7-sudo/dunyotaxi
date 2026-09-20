@@ -100,8 +100,17 @@ export function DriverHome({ driver }: { driver: DriverProfile }) {
   // driver was already online — so the background permission is never requested
   // before the disclosure has been shown and accepted.
   useEffect(() => {
-    if (online && bgConsent === true) void startBackgroundLocation();
-    else void stopBackgroundLocation();
+    if (online && bgConsent === true) {
+      void startBackgroundLocation();
+    } else {
+      void stopBackgroundLocation();
+      // The server can say we are online from a previous session, but the
+      // consent flag lives in SecureStore and a reinstall wipes it. Left
+      // alone the app sat there showing "Onlayn" while streaming nothing —
+      // the driver never taps the toggle, because they already appear online,
+      // so the disclosure never appeared and no GPS was ever sent. Ask now.
+      if (online && bgConsent === false) setShowDisclosure(true);
+    }
     return () => {
       void stopBackgroundLocation();
     };

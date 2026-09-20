@@ -66,7 +66,26 @@ export const t = {
     permDenied: "Joylashuvga ruxsat berilmadi. Manzilni qo'lda tanlang.",
     noDrivers: "Yaqin atrofda haydovchilar yo'q",
     outsideArea: "Xizmat faqat Buxoro viloyati ichida ishlaydi",
+    orderWithoutDestination: "Manzilni bilmayman — hisoblagich bo'yicha",
     support: "Qo'llab-quvvatlash",
+  },
+
+  meterOrder: {
+    title: "Manzilsiz buyurtma",
+    subtitle:
+      "Manzilni haydovchiga yo'lda aytasiz. Narx oldindan aytilmaydi — "
+      + "sayohat oxirida bosib o'tilgan masofa bo'yicha hisoblanadi.",
+    pickup: "Olib ketish joyi",
+    howItIsPriced: "Narx qanday hisoblanadi",
+    startingFrom: "Boshlang'ich narx",
+    perKm: "Har km uchun",
+    included: "Boshlang'ich narxga kiradi",
+    night: (from: string, to: string) => `Tungi tarif (${from}–${to})`,
+    note: "Hisoblagich sayohat boshlanganda ishga tushadi — "
+      + "sizni kutib turgan yo'l narxga qo'shilmaydi.",
+    noRate: "Tarifni yuklab bo'lmadi",
+    noPickup: "Avval olib ketish joyini tanlang",
+    confirm: "Taksi chaqirish",
   },
 
   pick: {

@@ -182,6 +182,23 @@ export default function PassengerHome() {
           disabled={!canContinue}
           style={{ marginTop: spacing(4) }}
         />
+
+        {/* Not everyone knows where they are going — "just drive, I'll direct
+            him" is a normal way to order here. Needs only a pickup. */}
+        <Pressable
+          onPress={() => router.push("/meter-order")}
+          disabled={!from || fromOutside}
+          style={styles.meterLink}
+        >
+          <Text
+            style={[
+              styles.meterLinkText,
+              (!from || fromOutside) && styles.meterLinkDisabled,
+            ]}
+          >
+            {t.home.orderWithoutDestination}
+          </Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -311,6 +328,9 @@ const styles = StyleSheet.create({
   placeLabel: { fontSize: 12, color: colors.muted },
   placeValue: { fontSize: 15, color: colors.text, marginTop: 2 },
   placeholder: { color: colors.muted },
+  meterLink: { marginTop: spacing(3), alignItems: "center" },
+  meterLinkText: { fontSize: 14, fontWeight: "600", color: colors.primary },
+  meterLinkDisabled: { color: colors.muted },
   outsideRow: { flexDirection: "row", alignItems: "center", gap: spacing(1), marginTop: spacing(2) },
   outside: { color: colors.danger, fontSize: 13, flex: 1 },
   divider: {
