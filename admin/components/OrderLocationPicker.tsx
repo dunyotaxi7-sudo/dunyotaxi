@@ -25,18 +25,32 @@ import {
 export type Loc = { lat: number; lng: number; address: string };
 type Which = "pickup" | "destination";
 
-const MAP_HEIGHT = 280;
+// Operators pick points by clicking, and 280px made that fiddly — a misplaced
+// pin costs more time than the taller map costs screen space.
+const MAP_HEIGHT = 440;
+
+// Marker colours, shared with the field dots so "A / blue" needs no explaining.
+const PICKUP_COLOR = "#2563eb";
+const DEST_COLOR = "#dc2626";
 
 export function OrderLocationPicker({
   pickup,
   destination,
   onChange,
+  onClear,
 }: {
   pickup: Loc | null;
   destination: Loc | null;
   onChange: (which: Which, loc: Loc) => void;
+  /** Clearing the destination is how an operator turns this into a metered order. */
+  onClear?: (which: Which) => void;
 }) {
   const [active, setActive] = useState<Which>("pickup");
+  // Most orders are typed, not clicked, so the map can be folded away to give
+  // the form back to the keyboard. Deliberately not persisted: restoring it
+  // would mean setting state from storage in an effect, and the map's default
+  // being open is the safer surprise.
+  const [mapOpen, setMapOpen] = useState(true);
 
   // Map click → reverse geocode → set the active point. Refs so the map's
   // click listener (created once) always sees the latest values.
@@ -58,36 +72,69 @@ export function OrderLocationPicker({
     <div className="space-y-3">
       <SearchField
         label="Qayerdan (olib ketish)"
+        dotColor={PICKUP_COLOR}
+        marker="A"
         value={pickup}
         onPick={(loc) => onChange("pickup", loc)}
         onFocusActive={() => setActive("pickup")}
+        onClear={() => onClear?.("pickup")}
       />
       <SearchField
         label="Qayerga (manzil)"
+        dotColor={DEST_COLOR}
+        marker="B"
         value={destination}
+        optional
         onPick={(loc) => onChange("destination", loc)}
         onFocusActive={() => setActive("destination")}
+        onClear={() => onClear?.("destination")}
       />
 
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-muted">Xaritada bosish o‘rnatadi:</span>
-        {(["pickup", "destination"] as Which[]).map((w) => (
-          <button
-            key={w}
-            type="button"
-            onClick={() => setActive(w)}
-            className={`btn ${active === w ? "btn-primary" : "btn-ghost"} !py-1 !px-3`}
-          >
-            {w === "pickup" ? "Qayerdan" : "Qayerga"}
-          </button>
-        ))}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        {/* Which point a map click sets. Previously two small ghost buttons
+            that were easy to overlook, so clicks landed on the wrong point. */}
+        <div className="inline-flex rounded-lg border border-border p-0.5 bg-[var(--surface-2)]">
+          {(["pickup", "destination"] as Which[]).map((w) => (
+            <button
+              key={w}
+              type="button"
+              onClick={() => setActive(w)}
+              className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
+                active === w
+                  ? "bg-[var(--surface)] font-medium shadow-[var(--shadow-sm)]"
+                  : "text-muted hover:text-foreground"
+              }`}
+            >
+              <span
+                className="inline-block h-2.5 w-2.5 rounded-full"
+                style={{ background: w === "pickup" ? PICKUP_COLOR : DEST_COLOR }}
+              />
+              {w === "pickup" ? "Qayerdan" : "Qayerga"}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => setMapOpen((v) => !v)}
+          className="btn btn-ghost text-xs"
+        >
+          {mapOpen ? "Xaritani yashirish" : "Xaritani ko‘rsatish"}
+        </button>
       </div>
 
-      {YANDEX_MAPS_KEY ? (
-        <YandexMap pickup={pickup} destination={destination} onClickPoint={handleMapClick} />
-      ) : (
-        <NoMapFallback pickup={pickup} destination={destination} />
-      )}
+      {mapOpen ? (
+        <>
+          <p className="text-xs text-muted">
+            Xaritada bosish <b>{active === "pickup" ? "Qayerdan" : "Qayerga"}</b>{" "}
+            nuqtasini o‘rnatadi.
+          </p>
+          {YANDEX_MAPS_KEY ? (
+            <YandexMap pickup={pickup} destination={destination} onClickPoint={handleMapClick} />
+          ) : (
+            <NoMapFallback pickup={pickup} destination={destination} />
+          )}
+        </>
+      ) : null}
     </div>
   );
 }
@@ -263,14 +310,23 @@ function NoMapFallback({ pickup, destination }: { pickup: Loc | null; destinatio
 
 function SearchField({
   label,
+  dotColor,
+  marker,
   value,
+  optional,
   onPick,
   onFocusActive,
+  onClear,
 }: {
   label: string;
+  /** Matches this field's pin on the map, so "A" needs no legend. */
+  dotColor: string;
+  marker: "A" | "B";
   value: Loc | null;
+  optional?: boolean;
   onPick: (loc: Loc) => void;
   onFocusActive: () => void;
+  onClear?: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [preds, setPreds] = useState<Suggestion[]>([]);
@@ -313,7 +369,31 @@ function SearchField({
 
   return (
     <div className="relative">
-      <label className="label">{label}</label>
+      <div className="flex items-center justify-between gap-2">
+        <label className="label flex items-center gap-2">
+          <span
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold text-white"
+            style={{ background: dotColor }}
+          >
+            {marker}
+          </span>
+          {label}
+          {optional ? (
+            <span className="text-xs font-normal text-muted">
+              — bo‘sh qoldirsangiz, hisoblagich bo‘yicha
+            </span>
+          ) : null}
+        </label>
+        {value && onClear ? (
+          <button
+            type="button"
+            onClick={onClear}
+            className="text-xs text-muted hover:text-foreground"
+          >
+            Tozalash
+          </button>
+        ) : null}
+      </div>
       <input
         className="input"
         value={display}

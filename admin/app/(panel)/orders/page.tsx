@@ -13,6 +13,25 @@ import { OrderLocationPicker, type Loc } from "@/components/OrderLocationPicker"
 import { RequestLocationPrompt } from "@/components/RequestLocationPrompt";
 import { ErrorBlock } from "@/components/ui";
 
+function Chip({
+  ok,
+  neutral,
+  children,
+}: {
+  ok: boolean;
+  neutral?: boolean;
+  children: React.ReactNode;
+}) {
+  const tone = neutral
+    ? "border-border text-muted"
+    : ok
+      ? "border-green-300 text-green-700 bg-green-50/60"
+      : "border-border text-muted";
+  return (
+    <span className={`rounded-full border px-2 py-0.5 ${tone}`}>{children}</span>
+  );
+}
+
 type SelectedClient = {
   /** null for a caller we are about to create along with the order. */
   id: string | null;
@@ -282,6 +301,9 @@ export default function OrdersPage() {
           onChange={(which, loc) =>
             which === "pickup" ? setPickup(loc) : setDestination(loc)
           }
+          onClear={(which) =>
+            which === "pickup" ? setPickup(null) : setDestination(null)
+          }
         />
       </section>
 
@@ -328,7 +350,9 @@ export default function OrdersPage() {
       {formError && <ErrorBlock message={formError} />}
       {create.isError && <ErrorBlock message={apiError(create.error)} />}
 
-      <div className="flex items-center gap-3">
+      {/* Sticky, so the operator never scrolls back down to send while the
+          caller waits — and so the order's state is readable at a glance. */}
+      <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center gap-3 border-t border-border bg-[var(--surface)]/95 px-1 py-3 backdrop-blur">
         <button
           className="btn btn-primary"
           onClick={submit}
@@ -336,6 +360,18 @@ export default function OrdersPage() {
         >
           {create.isPending ? "Yuborilmoqda…" : "Buyurtma yaratish"}
         </button>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+          <Chip ok={Boolean(selected)}>
+            {selected ? selected.full_name || formatPhone(selected.phone) : "Mijoz"}
+          </Chip>
+          <Chip ok={Boolean(pickup)}>
+            {pickup ? "Qayerdan ✓" : "Qayerdan"}
+          </Chip>
+          <Chip ok neutral={!destination}>
+            {destination ? "Qayerga ✓" : "Hisoblagich"}
+          </Chip>
+          <Chip ok>{MODES.find((m) => m.value === mode)?.label}</Chip>
+        </div>
         {result && (
           <button
             className="btn btn-ghost"
