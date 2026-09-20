@@ -270,6 +270,9 @@ export const t = {
       goOnline: "Ishni boshlash",
       goOffline: "Ishni tugatish",
       gpsStreaming: "GPS uzatilmoqda",
+      // Shown when the server is receiving nothing — usually the background
+      // location permission was declined, which silently zeroes a metered fare.
+      gpsNotSending: "GPS uzatilmayapti — ruxsatni tekshiring",
       todayRides: "Bugungi sayohatlar",
       todayEarnings: "Bugungi daromad",
       needLocation: "Onlayn bo'lish uchun joylashuvga ruxsat bering.",

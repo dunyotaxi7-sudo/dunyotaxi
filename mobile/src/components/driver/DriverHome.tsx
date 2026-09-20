@@ -168,6 +168,19 @@ export function DriverHome({ driver }: { driver: DriverProfile }) {
     queryFn: () => driverApi.wallet(),
     refetchInterval: 20000,
   });
+  // Is the server actually receiving our GPS? The app cannot answer this: the
+  // socket being connected says only that a socket is open, and the background
+  // task runs in a JS context this one cannot see into. A driver who declined
+  // the background-location permission saw a reassuring green "GPS
+  // uzatilmoqda" while nothing arrived — and a metered fare measured zero.
+  const gps = useQuery({
+    queryKey: ["location-status"],
+    queryFn: () => driverApi.locationStatus(),
+    enabled: online,
+    refetchInterval: 15000,
+  });
+  const gpsReaching = gps.data?.streaming === true;
+
   // Live count for the "Buyurtmalar" badge. Shares the ["available-orders"]
   // cache with the Orders page, so opening it shows the same list instantly.
   const orderCount = useQuery({
@@ -242,8 +255,12 @@ export function DriverHome({ driver }: { driver: DriverProfile }) {
             <Text style={styles.statusText}>
               {online ? t.driver.home.online : t.driver.home.offline}
             </Text>
-            {online && connected ? (
-              <Text style={styles.gps}>· {t.driver.home.gpsStreaming}</Text>
+            {online ? (
+              gpsReaching ? (
+                <Text style={styles.gps}>· {t.driver.home.gpsStreaming}</Text>
+              ) : (
+                <Text style={styles.gpsWarn}>· {t.driver.home.gpsNotSending}</Text>
+              )
             ) : null}
           </View>
           {/* Opens the profile (account, car, rating) — which is also where
@@ -371,6 +388,11 @@ const styles = StyleSheet.create({
   statusLeft: { flexDirection: "row", alignItems: "center", gap: spacing(2) },
   dot: { width: 10, height: 10, borderRadius: 5 },
   statusText: { fontSize: 15, fontWeight: "700", color: colors.text },
+  gpsWarn: {
+    fontSize: 12,
+    color: colors.danger,
+    fontWeight: "600",
+  },
   gps: { fontSize: 12, color: colors.success },
   statsRow: {
     flexDirection: "row",

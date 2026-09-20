@@ -54,6 +54,24 @@ async def _fresh_ids(r: redis.Redis, ids: list) -> set[str]:
     return fresh
 
 
+async def seconds_since_last_fix(r: redis.Redis, driver_id: str) -> int | None:
+    """How long ago this driver's last position reached us, or None if the
+    freshness key has expired (nothing recent at all).
+
+    The app cannot answer this for itself: a live WebSocket says only that a
+    socket is open, and the background location task runs in its own JS context
+    where the UI cannot see whether a send succeeded. So the server — the only
+    party that knows what actually arrived — reports it.
+    """
+    raw = await r.get(_SEEN_PREFIX + driver_id)
+    if raw is None:
+        return None
+    try:
+        return max(0, int(time.time()) - int(raw))
+    except (TypeError, ValueError):
+        return None
+
+
 async def get_location(r: redis.Redis, driver_id: str) -> tuple[float, float] | None:
     """Return (lat, lng) for a driver, or None if not online."""
     res = await r.geopos(DRIVERS_GEO_KEY, driver_id)

@@ -10,6 +10,7 @@ import { WaitingMeter } from "@/components/WaitingMeter";
 import { formatSom } from "@/lib/format";
 import { openExternalNav } from "@/lib/nav";
 import { paymentLabel, t } from "@/lib/strings";
+import { useTripLocationStream } from "@/lib/useTripLocationStream";
 import { colors, radius, spacing } from "@/theme/colors";
 
 export default function DriverTripScreen() {
@@ -39,6 +40,10 @@ export default function DriverTripScreen() {
     ride ? { lat: ride.from_lat, lng: ride.from_lng } : null,
     dest,
   );
+
+  // The meter is fed by whatever position reaches the server, so a trip must
+  // never depend on the background task alone (see useTripLocationStream).
+  useTripLocationStream(ride?.status === "ongoing");
 
   const fitted = useRef(false);
   useEffect(() => {

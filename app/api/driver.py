@@ -40,6 +40,7 @@ from app.schemas.driver import (
     WalletTx,
 )
 from app.services import driver as driver_service
+from app.services import location
 from app.services import driver_finance
 from app.services import ride as ride_service
 
@@ -259,6 +260,22 @@ async def update_location(
     """HTTP location update — used for background streaming (where holding a
     WebSocket open isn't reliable). Same effect as the location WS."""
     await ride_service.relay_driver_location(r, str(driver.id), payload.lat, payload.lng)
+
+
+@router.get("/location-status")
+async def location_status(
+    driver: Driver = Depends(get_current_driver),
+    r: redis.Redis = Depends(get_redis_dep),
+):
+    """Whether the driver's GPS is actually reaching us.
+
+    The app shows "GPS uzatilmoqda" from its WebSocket state, which says only
+    that a socket is open — a driver whose background location permission was
+    declined sees that reassuring label while the server receives nothing, and
+    a metered fare measures zero. This is the honest answer.
+    """
+    age = await location.seconds_since_last_fix(r, str(driver.id))
+    return {"streaming": age is not None, "age_seconds": age}
 
 
 @router.get("/available-orders", response_model=list[AvailableOrder])

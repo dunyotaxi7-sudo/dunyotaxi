@@ -27,6 +27,22 @@ export const driverApi = {
   // 404 when the current user has no driver profile yet.
   me: () => api.get<DriverProfile>("/driver/me").then((r) => r.data),
 
+  /** Push one position. Used by the foreground streamer during a trip. */
+  sendLocation: (lat: number, lng: number) =>
+    api.post("/driver/location", { lat, lng }).then((r) => r.data),
+
+  /**
+   * Whether the server is actually receiving this driver's GPS. The app cannot
+   * tell on its own — a live socket only means a socket is open, and the
+   * background task runs in a JS context the UI cannot see into.
+   */
+  locationStatus: () =>
+    api
+      .get<{ streaming: boolean; age_seconds: number | null }>(
+        "/driver/location-status",
+      )
+      .then((r) => r.data),
+
   /** Car-model catalog for the registration picker. */
   carModels: () =>
     api.get<CarModelOption[]>("/driver/car-models").then((r) => r.data),
