@@ -1036,6 +1036,11 @@ async def set_status(
         ride.cancel_reason = cancel_reason
         offer_broker.cancel(str(ride_id))
         revoke_ids = _current_offer.pop(str(ride_id), set())
+        # Completion deletes the meter; cancellation used to leave it behind to
+        # sit out its 24-hour TTL, which made "which meters are running?" an
+        # unanswerable question when looking for a fault.
+        if ride.fare_mode == "meter":
+            await get_redis().delete(ride_meter_key(str(ride_id)))
 
     if target in ("completed", "cancelled") and ride.driver_id:
         await clear_active_ride(get_redis(), str(ride.driver_id))

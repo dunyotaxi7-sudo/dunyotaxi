@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import * as Location from "expo-location";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
@@ -8,7 +9,7 @@ import { driverApi } from "@/lib/api/driver";
 import { Button } from "@/components/ui/Button";
 import { WaitingMeter } from "@/components/WaitingMeter";
 import { formatSom } from "@/lib/format";
-import { openExternalNav } from "@/lib/nav";
+import { openExternalNav, openNavigatorAt } from "@/lib/nav";
 import { paymentLabel, t } from "@/lib/strings";
 import { TripMeter } from "@/components/driver/TripMeter";
 import { useTripLocationStream } from "@/lib/useTripLocationStream";
@@ -45,6 +46,18 @@ export default function DriverTripScreen() {
   // The meter is fed by whatever position reaches the server, so a trip must
   // never depend on the background task alone (see useTripLocationStream).
   useTripLocationStream(ride?.status === "ongoing");
+
+  async function openNavigatorHere() {
+    try {
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      await openNavigatorAt(pos.coords.latitude, pos.coords.longitude);
+    } catch {
+      // No fix available — fall back to the pickup, which is at least nearby.
+      if (ride) await openNavigatorAt(ride.from_lat, ride.from_lng);
+    }
+  }
 
   const fitted = useRef(false);
   useEffect(() => {
@@ -127,6 +140,11 @@ export default function DriverTripScreen() {
             <Text style={styles.payMeter}>
               {paymentLabel(ride.payment_method)}
             </Text>
+            {/* No destination to route to, but the navigator is easy to close
+                by accident — this puts it back, centred on the driver. */}
+            <Pressable style={styles.navBtn} onPress={openNavigatorHere}>
+              <Text style={styles.navText}>🧭 {t.driver.trip.openNavigator}</Text>
+            </Pressable>
           </View>
         ) : (
           <View style={styles.fareRow}>

@@ -26,6 +26,28 @@ export async function openExternalNav(lat: number, lng: number) {
   }
 }
 
+// A metered ride has no destination to route to, but the driver still wants
+// the navigator on screen — for the road layout, the speed, and because it is
+// easy to close it by accident mid-trip. So: open it centred on where they
+// are, with no route.
+const showPointUrls = (lat: number, lng: number) => [
+  `yandexnavi://show_point_on_map?lat=${lat}&lon=${lng}&zoom=16&no-balloon=1`,
+  `yandexmaps://maps.yandex.ru/?ll=${lng},${lat}&z=16`,
+  `https://yandex.uz/maps/?ll=${lng},${lat}&z=16`,
+];
+
+/** Open the navigator at a point, without building a route to it. */
+export async function openNavigatorAt(lat: number, lng: number) {
+  for (const url of showPointUrls(lat, lng)) {
+    try {
+      await Linking.openURL(url);
+      return;
+    } catch {
+      // Not installed — fall through to the next option.
+    }
+  }
+}
+
 export function callPhone(phone: string) {
   Linking.openURL(`tel:${phone}`).catch(() => {});
 }

@@ -354,6 +354,7 @@ export const t = {
       // Metered ride: the passenger directs the driver, and the fare comes
       // from the distance driven rather than a price agreed up front.
       noDestination: "Manzil ko'rsatilmagan · hisoblagich bo'yicha",
+      openNavigator: "Navigatorni ochish",
       meterTitle: "Hisoblagich",
       meterDistance: "Bosib o'tilgan",
       meterFare: "Joriy narx",
