@@ -66,7 +66,9 @@ export const t = {
     permDenied: "Joylashuvga ruxsat berilmadi. Manzilni qo'lda tanlang.",
     noDrivers: "Yaqin atrofda haydovchilar yo'q",
     outsideArea: "Xizmat faqat Buxoro viloyati ichida ishlaydi",
-    orderWithoutDestination: "Manzilni bilmayman — hisoblagich bo'yicha",
+    // Plain language beats the jargon: a passenger knows what "I'll say the
+    // address on the way" means; "hisoblagich" is explained on the next screen.
+    orderWithoutDestination: "Manzilni yo'lda aytaman",
     support: "Qo'llab-quvvatlash",
   },
 

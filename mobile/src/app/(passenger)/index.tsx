@@ -184,16 +184,27 @@ export default function PassengerHome() {
         />
 
         {/* Not everyone knows where they are going — "just drive, I'll direct
-            him" is a normal way to order here. Needs only a pickup. */}
+            him" is a normal way to order here. Needs only a pickup. A proper
+            button rather than a line of blue text, which read as a footnote
+            and was easy to miss. */}
         <Pressable
           onPress={() => router.push("/meter-order")}
           disabled={!from || fromOutside}
-          style={styles.meterLink}
+          style={({ pressed }) => [
+            styles.meterBtn,
+            (!from || fromOutside) && styles.meterBtnDisabled,
+            pressed && styles.meterBtnPressed,
+          ]}
         >
+          <Ionicons
+            name="speedometer-outline"
+            size={19}
+            color={!from || fromOutside ? colors.muted : colors.primary}
+          />
           <Text
             style={[
-              styles.meterLinkText,
-              (!from || fromOutside) && styles.meterLinkDisabled,
+              styles.meterBtnText,
+              (!from || fromOutside) && styles.meterBtnTextDisabled,
             ]}
           >
             {t.home.orderWithoutDestination}
@@ -328,9 +339,25 @@ const styles = StyleSheet.create({
   placeLabel: { fontSize: 12, color: colors.muted },
   placeValue: { fontSize: 15, color: colors.text, marginTop: 2 },
   placeholder: { color: colors.muted },
-  meterLink: { marginTop: spacing(3), alignItems: "center" },
-  meterLinkText: { fontSize: 14, fontWeight: "600", color: colors.primary },
-  meterLinkDisabled: { color: colors.muted },
+  meterBtn: {
+    marginTop: spacing(3),
+    height: 52,
+    borderRadius: radius.lg,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    backgroundColor: "#eff6ff",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing(2),
+  },
+  meterBtnDisabled: {
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  meterBtnPressed: { opacity: 0.85 },
+  meterBtnText: { fontSize: 16, fontWeight: "700", color: colors.primary },
+  meterBtnTextDisabled: { color: colors.muted },
   outsideRow: { flexDirection: "row", alignItems: "center", gap: spacing(1), marginTop: spacing(2) },
   outside: { color: colors.danger, fontSize: 13, flex: 1 },
   divider: {
