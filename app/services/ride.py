@@ -171,7 +171,9 @@ async def read_meter_km(r, ride_id: str) -> Decimal:
     return Decimal(str(round(metres / 1000, 2)))
 
 
-async def meter_snapshot(db: AsyncSession, r, ride: Ride) -> dict:
+async def meter_snapshot(
+    db: AsyncSession, r, ride: Ride, *, at: datetime | None = None
+) -> dict:
     """What the meter reads right now, and what that costs.
 
     Shared by the live display and by settlement, so the number a driver
@@ -183,8 +185,11 @@ async def meter_snapshot(db: AsyncSession, r, ride: Ride) -> dict:
     price: int | None = None
     if cfg is not None:
         tier = await pricing.tier_multiplier(db, ride.car_type)
+        # `at` decides whether the night multiplier applies. Injectable so the
+        # fare can be tested at a fixed hour — reading the wall clock made the
+        # tests pass by day and fail after 22:00.
         price, _night, _duration = pricing.compute_fare(
-            cfg, float(km), at=datetime.now(), tier_multiplier=tier
+            cfg, float(km), at=at or datetime.now(), tier_multiplier=tier
         )
     return {"km": km, "price_sum": price}
 

@@ -6,6 +6,7 @@ someone — so both go through meter_snapshot.
 """
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -51,15 +52,21 @@ def _ride():
     return SimpleNamespace(id="ride-1", car_type="econom")
 
 
+# Midday: outside the 22:00-06:00 night window, so the multiplier does not
+# apply. Pinned because reading the wall clock made these pass by day and fail
+# at night — which is how the injectable `at` came to exist.
+DAYTIME = datetime(2026, 9, 20, 12, 0)
+
+
 async def test_a_stationary_car_reads_the_minimum(patched):
-    snap = await ride_service.meter_snapshot(None, MeterAt(0), _ride())
+    snap = await ride_service.meter_snapshot(None, MeterAt(0), _ride(), at=DAYTIME)
 
     assert snap["km"] == Decimal("0.00")
     assert snap["price_sum"] == 5000, "the floor, not a free ride"
 
 
 async def test_five_kilometres_costs_base_plus_distance(patched):
-    snap = await ride_service.meter_snapshot(None, MeterAt(5000), _ride())
+    snap = await ride_service.meter_snapshot(None, MeterAt(5000), _ride(), at=DAYTIME)
 
     assert snap["km"] == Decimal("5.00")
     # 5000 base + 5 km x 2000
@@ -69,7 +76,8 @@ async def test_five_kilometres_costs_base_plus_distance(patched):
 async def test_the_fare_climbs_with_the_distance(patched):
     """What the driver watches: every extra kilometre must add to the total."""
     prices = [
-        (await ride_service.meter_snapshot(None, MeterAt(m), _ride()))["price_sum"]
+        (await ride_service.meter_snapshot(
+            None, MeterAt(m), _ride(), at=DAYTIME))["price_sum"]
         for m in (0, 1000, 2000, 3000)
     ]
 
@@ -82,7 +90,7 @@ async def test_every_metre_is_charged_because_base_km_is_zero(patched):
     all: a 120 m hop is 5000 + 0.12 x 2000 = 5240, not 5000. That is a pricing
     choice rather than a bug, but it means there is no "included" distance —
     worth knowing before anyone assumes short trips cost the base fare."""
-    snap = await ride_service.meter_snapshot(None, MeterAt(120), _ride())
+    snap = await ride_service.meter_snapshot(None, MeterAt(120), _ride(), at=DAYTIME)
 
     assert snap["price_sum"] == 5240
     assert snap["price_sum"] >= 5000, "never below the configured floor"
@@ -94,7 +102,17 @@ async def test_a_missing_pricing_config_reports_no_price(monkeypatch):
         return None
 
     monkeypatch.setattr(pricing, "get_active_config", _none)
-    snap = await ride_service.meter_snapshot(None, MeterAt(4000), _ride())
+    snap = await ride_service.meter_snapshot(None, MeterAt(4000), _ride(), at=DAYTIME)
 
     assert snap["km"] == Decimal("4.00")
     assert snap["price_sum"] is None
+
+
+async def test_the_night_multiplier_applies_after_ten(patched):
+    """Discovered by these tests failing after 22:00 — the same distance costs
+    20% more at night, which is the configured tariff doing its job."""
+    night = datetime(2026, 9, 20, 23, 30)
+    day = await ride_service.meter_snapshot(None, MeterAt(5000), _ride(), at=DAYTIME)
+    dark = await ride_service.meter_snapshot(None, MeterAt(5000), _ride(), at=night)
+
+    assert dark["price_sum"] == round(day["price_sum"] * 1.2)
