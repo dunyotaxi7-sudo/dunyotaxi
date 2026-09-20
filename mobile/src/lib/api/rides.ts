@@ -4,6 +4,7 @@ import type {
   EstimateResponse,
   PaymentMethod,
   RideDriverInfo,
+  RideMeter,
   RidePublic,
 } from "../types";
 
@@ -37,6 +38,10 @@ export interface RequestRideInput {
 const geo = (c: Coords) => ({ lat: c.lat, lng: c.lng });
 
 export const ridesApi = {
+  /** Live taximeter: distance driven so far and what it currently costs. */
+  meter: (rideId: string) =>
+    api.get<RideMeter>(`/rides/${rideId}/meter`).then((r) => r.data),
+
   nearbyDrivers: (center: Coords, radiusM = 5000) =>
     api
       .get<NearbyDriverDTO[]>("/rides/nearby-drivers", {

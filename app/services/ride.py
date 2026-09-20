@@ -171,6 +171,24 @@ async def read_meter_km(r, ride_id: str) -> Decimal:
     return Decimal(str(round(metres / 1000, 2)))
 
 
+async def meter_snapshot(db: AsyncSession, r, ride: Ride) -> dict:
+    """What the meter reads right now, and what that costs.
+
+    Shared by the live display and by settlement, so the number a driver
+    watches climb during the trip is the same number they are paid on — any
+    divergence between the two would look like the app cheating someone.
+    """
+    km = await read_meter_km(r, str(ride.id))
+    cfg = await pricing.get_active_config(db)
+    price: int | None = None
+    if cfg is not None:
+        tier = await pricing.tier_multiplier(db, ride.car_type)
+        price, _night, _duration = pricing.compute_fare(
+            cfg, float(km), at=datetime.now(), tier_multiplier=tier
+        )
+    return {"km": km, "price_sum": price}
+
+
 async def _meter_add(r, ride_id: str, lat: float, lng: float) -> None:
     """Fold one GPS fix into the meter. No-op unless the meter is open."""
     key = ride_meter_key(ride_id)
@@ -1104,15 +1122,11 @@ async def complete_ride(db: AsyncSession, ride_id: uuid.UUID,
     # charge so that charge is added on top, exactly as for a fixed ride.
     if ride.fare_mode == "meter":
         r = get_redis()
-        ride.metered_km = await read_meter_km(r, str(ride_id))
+        snapshot = await meter_snapshot(db, r, ride)
         await r.delete(ride_meter_key(str(ride_id)))
-        if cfg is not None:
-            tier = await pricing.tier_multiplier(db, ride.car_type)
-            price, _night, _dur = pricing.compute_fare(
-                cfg, float(ride.metered_km), at=datetime.now(),
-                tier_multiplier=tier,
-            )
-            ride.price_sum = price
+        ride.metered_km = snapshot["km"]
+        if snapshot["price_sum"] is not None:
+            ride.price_sum = snapshot["price_sum"]
         # distance_km is the estimate for a fixed ride; for a metered one the
         # measured distance is the only distance there is, so report that.
         ride.distance_km = ride.metered_km

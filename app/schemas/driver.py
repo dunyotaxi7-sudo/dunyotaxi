@@ -136,6 +136,10 @@ class RideEarningBreakdown(BaseModel):
     commission_pct: Decimal
     commission_sum: int
     driver_earning: int
+    # For a metered ride this is what the meter measured; for a fixed one it is
+    # the distance the fare was quoted on.
+    fare_mode: str = "fixed"
+    distance_km: Decimal | None = None
 
 
 class DriverBonus(BaseModel):

@@ -163,9 +163,15 @@ async def ride_earning(db: AsyncSession, driver: Driver, ride_id) -> dict | None
     )).scalar_one_or_none()
     if dc is None:
         return None
+    # The distance is what justifies a metered fare, so the summary that shows
+    # the money should show the kilometres it was calculated from.
+    ride = await db.get(Ride, ride_id)
     return {
         "ride_amount": dc.ride_amount,
         "commission_pct": dc.commission_pct,
         "commission_sum": dc.commission_sum,
         "driver_earning": dc.driver_earning,
+        "fare_mode": ride.fare_mode if ride else "fixed",
+        "distance_km": (ride.metered_km if ride and ride.fare_mode == "meter"
+                        else (ride.distance_km if ride else None)),
     }

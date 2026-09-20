@@ -23,6 +23,7 @@ from app.schemas.ride import (
     RideCancel,
     RideDriverInfo,
     RideDriverView,
+    RideMeter,
     RideOfferDetails,
     RidePublic,
     RideRequest,
@@ -275,6 +276,42 @@ async def driver_ride_view(
         passenger_rating=round(float(avg), 2) if avg is not None else None,
         waiting_seconds=ride.waiting_seconds,
         waiting_started_at=ride.waiting_started_at,
+        fare_mode=ride.fare_mode,
+        metered_km=ride.metered_km,
+    )
+
+
+@router.get("/{ride_id}/meter", response_model=RideMeter)
+async def ride_meter(
+    ride_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    r: redis.Redis = Depends(get_redis_dep),
+):
+    """Live meter for a ride, for the driver on it or the passenger in it.
+
+    Both sides see the same figure, from the same calculation that settles the
+    fare — a driver watching the meter climb and a passenger asking what it is
+    up to should never be told different numbers.
+    """
+    ride = await db.get(Ride, ride_id)
+    if ride is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "ride not found")
+
+    allowed = ride.passenger_id == user.id
+    if not allowed and ride.driver_id is not None:
+        driver = await driver_service.get_driver_by_user(db, user.id)
+        allowed = driver is not None and driver.id == ride.driver_id
+    if not allowed:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "not your ride")
+
+    snapshot = await ride_service.meter_snapshot(db, r, ride)
+    return RideMeter(
+        ride_id=ride.id,
+        fare_mode=ride.fare_mode,
+        km=snapshot["km"],
+        price_sum=snapshot["price_sum"],
+        running=ride.status == "ongoing" and ride.fare_mode == "meter",
     )
 
 

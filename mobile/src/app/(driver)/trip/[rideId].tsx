@@ -10,6 +10,7 @@ import { WaitingMeter } from "@/components/WaitingMeter";
 import { formatSom } from "@/lib/format";
 import { openExternalNav } from "@/lib/nav";
 import { paymentLabel, t } from "@/lib/strings";
+import { TripMeter } from "@/components/driver/TripMeter";
 import { useTripLocationStream } from "@/lib/useTripLocationStream";
 import { colors, radius, spacing } from "@/theme/colors";
 
@@ -120,10 +121,19 @@ export default function DriverTripScreen() {
           {ride.to_address ?? t.driver.trip.noDestination}
         </Text>
 
-        <View style={styles.fareRow}>
-          <Text style={styles.fare}>{formatSom(ride.price_sum)}</Text>
-          <Text style={styles.pay}>{paymentLabel(ride.payment_method)}</Text>
-        </View>
+        {ride.fare_mode === "meter" ? (
+          <View style={{ marginTop: spacing(3) }}>
+            <TripMeter rideId={rideId} active={ride.status === "ongoing"} />
+            <Text style={styles.payMeter}>
+              {paymentLabel(ride.payment_method)}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.fareRow}>
+            <Text style={styles.fare}>{formatSom(ride.price_sum)}</Text>
+            <Text style={styles.pay}>{paymentLabel(ride.payment_method)}</Text>
+          </View>
+        )}
 
         {dest ? (
           <Pressable
@@ -182,6 +192,12 @@ const styles = StyleSheet.create({
   handle: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: spacing(4) },
   label: { fontSize: 12, color: colors.muted },
   addr: { fontSize: 16, color: colors.text, marginTop: 2 },
+  payMeter: {
+    fontSize: 13,
+    color: colors.muted,
+    textAlign: "center",
+    marginTop: spacing(2),
+  },
   fareRow: { flexDirection: "row", alignItems: "baseline", gap: spacing(3), marginTop: spacing(3) },
   fare: { fontSize: 24, fontWeight: "800", color: colors.text },
   pay: { fontSize: 14, color: colors.muted },

@@ -142,6 +142,21 @@ class RideDriverView(BaseModel):
     passenger_rating: float | None = None
     waiting_seconds: int = 0
     waiting_started_at: datetime | None = None
+    # 'fixed' or 'meter' — the trip screen shows a live meter for the latter.
+    fare_mode: str = "fixed"
+    metered_km: Decimal | None = None
+
+
+class RideMeter(BaseModel):
+    """What the meter reads right now, polled by the driver's trip screen."""
+
+    ride_id: uuid.UUID
+    fare_mode: str
+    km: Decimal
+    # None only if no pricing config is active, which would be a misconfigured
+    # system rather than a free ride.
+    price_sum: int | None = None
+    running: bool
 
 
 class WaitStartIn(BaseModel):

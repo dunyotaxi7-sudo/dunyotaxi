@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { driverApi } from "@/lib/api/driver";
 import { Button } from "@/components/ui/Button";
-import { formatSom } from "@/lib/format";
+import { formatKm, formatSom } from "@/lib/format";
 import { t } from "@/lib/strings";
 import { colors, radius, spacing } from "@/theme/colors";
 
@@ -42,6 +42,18 @@ export default function DriverSummaryScreen() {
         <Text style={styles.title}>{t.driver.summary.title}</Text>
 
         <View style={styles.card}>
+          {/* The distance is what the fare was calculated from — on a metered
+              ride it is the whole justification for the number below it. */}
+          {e?.distance_km ? (
+            <Row
+              label={
+                e.fare_mode === "meter"
+                  ? t.driver.summary.meteredDistance
+                  : t.driver.summary.distance
+              }
+              value={formatKm(e.distance_km)}
+            />
+          ) : null}
           <Row label={t.driver.summary.fare} value={formatSom(e?.ride_amount)} />
           <Row
             label={`${t.driver.summary.commission}${e ? ` (${Number(e.commission_pct).toFixed(0)}%)` : ""}`}

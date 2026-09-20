@@ -335,11 +335,20 @@ export const t = {
       // Metered ride: the passenger directs the driver, and the fare comes
       // from the distance driven rather than a price agreed up front.
       noDestination: "Manzil ko'rsatilmagan · hisoblagich bo'yicha",
+      meterTitle: "Hisoblagich",
+      meterDistance: "Bosib o'tilgan",
+      meterFare: "Joriy narx",
+      meterWaiting: "GPS kutilmoqda…",
+      meterZero: "Masofa hisoblanmayapti — GPS serverga yetib kelmayapti. "
+        + "Joylashuv ruxsatini tekshiring, aks holda narx eng past qiymatda qoladi.",
+      meterOffline: "Hisoblagich ma'lumotini olish imkonsiz",
       fare: "Narx",
       finish: "Sayohatni tugatish",
     },
     summary: {
       title: "Sayohat yakunlandi",
+      distance: "Masofa",
+      meteredDistance: "Hisoblagich bo'yicha masofa",
       fare: "Sayohat narxi",
       commission: "Komissiya",
       earning: "Sof daromad",

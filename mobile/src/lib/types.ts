@@ -130,6 +130,9 @@ export interface RideEarningBreakdown {
   commission_pct: string;
   commission_sum: number;
   driver_earning: number;
+  fare_mode: "fixed" | "meter";
+  /** Metered distance for a meter ride, quoted distance for a fixed one. */
+  distance_km: string | null;
 }
 
 export interface DriverBonus {
@@ -141,6 +144,15 @@ export interface DriverBonus {
   bonus_amount: number | null;
   progress: number;
   is_completed: boolean;
+}
+
+/** Live taximeter reading for a ride. */
+export interface RideMeter {
+  ride_id: string;
+  fare_mode: "fixed" | "meter";
+  km: string;
+  price_sum: number | null;
+  running: boolean;
 }
 
 export interface RideDriverView {
@@ -159,6 +171,8 @@ export interface RideDriverView {
   passenger_name: string;
   passenger_phone: string;
   passenger_rating: number | null;
+  fare_mode: "fixed" | "meter";
+  metered_km: string | null;
   waiting_seconds: number;
   waiting_started_at: string | null;
 }
