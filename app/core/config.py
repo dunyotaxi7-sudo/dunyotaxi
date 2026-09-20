@@ -113,7 +113,7 @@ class Settings(BaseSettings):
 
     # OTP abuse limits (SMS costs money and spamming a number is harassment).
     otp_resend_cooldown_seconds: int = 60
-    otp_max_per_phone_hour: int = 5
+    otp_max_per_phone_hour: int = 10
     otp_max_per_phone_day: int = 10
     otp_max_per_ip_hour: int = 20
 
