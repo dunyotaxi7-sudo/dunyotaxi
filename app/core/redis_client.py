@@ -43,6 +43,16 @@ def driver_meta_key(driver_id: str) -> str:
     return f"driver:meta:{driver_id}"
 
 
+def active_ride_key(driver_id: str) -> str:
+    """The ride a driver is currently on: "<ride_id>|<passenger_user_id>"."""
+    return f"ride:active:{driver_id}"
+
+
+# Every driver currently on a ride. Kept beside the per-driver keys so dispatch
+# can skip busy drivers in one read instead of scanning.
+BUSY_DRIVERS_KEY = "drivers:busy"
+
+
 def ride_meter_key(ride_id: str) -> str:
     """Live distance meter for one metered ride: accumulated metres plus the
     last GPS anchor it was measured from."""

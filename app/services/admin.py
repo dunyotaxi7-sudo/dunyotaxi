@@ -679,6 +679,11 @@ async def create_order(
 
     # Create the ride (commits; also persists a newly-created passenger).
     dest = payload.destination
+    if dest is None and not settings.allow_metered_orders:
+        raise ValueError(
+            "Hisoblagichli buyurtmalar hozircha o'chirilgan — "
+            "borish manzilini kiriting"
+        )
     ride = await ride_service.create_admin_ride(
         db, passenger_id,
         from_lat=payload.pickup.lat, from_lng=payload.pickup.lng,

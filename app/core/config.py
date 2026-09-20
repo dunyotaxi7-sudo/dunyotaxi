@@ -61,6 +61,13 @@ class Settings(BaseSettings):
     # force-closed, or lost signal), their stale position drops out of the pool.
     driver_location_ttl_seconds: int = 120
 
+    # Metered orders (no destination, priced by distance driven) crash any
+    # driver app built before the null-destination guard: the native map marker
+    # asserts non-null coordinates. Play rollouts take days and some drivers
+    # never update, so this stays off until the fleet has caught up — a flag,
+    # not a note to operators, because a note gets forgotten mid-shift.
+    allow_metered_orders: bool = False
+
     # Broadcast dispatch: an order is offered to every eligible driver within
     # this radius at once (ranked nearest-first); the first to accept wins and
     # the rest have their offer revoked. broadcast_max_drivers caps the fan-out.

@@ -291,7 +291,8 @@ export default function OrdersPage() {
           <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-800">
             Borish manzili tanlanmagan — <b>hisoblagichli buyurtma</b>. Narx
             oldindan aytilmaydi, sayohat oxirida bosib o‘tilgan masofa bo‘yicha
-            hisoblanadi.
+            hisoblanadi. Eslatma: haydovchilarning ilovasi yangilanmaguncha bu
+            turdagi buyurtmalar server tomonidan qabul qilinmaydi.
           </div>
         )}
 

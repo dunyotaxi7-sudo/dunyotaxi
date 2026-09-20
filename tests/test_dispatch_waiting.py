@@ -17,6 +17,19 @@ import pytest
 from app.services import ride as ride_service
 
 
+class NoBusyDrivers:
+    """Redis stand-in for a quiet night: nobody is on a trip."""
+
+    async def smembers(self, _key):
+        return set()
+
+    async def exists(self, _key):
+        return 0
+
+    async def srem(self, *_args):
+        return 0
+
+
 class FakeSession:
     """Just enough session for the loop: it only calls db.get(Ride, id)."""
 
@@ -42,7 +55,7 @@ def dispatch(monkeypatch):
     state = {"searches": 0, "gave_up": False}
 
     monkeypatch.setattr(ride_service, "AsyncSessionLocal", lambda: FakeSession(ride))
-    monkeypatch.setattr(ride_service, "get_redis", lambda: object())
+    monkeypatch.setattr(ride_service, "get_redis", lambda: NoBusyDrivers())
     monkeypatch.setattr(ride_service, "_own_driver_id", _async_none)
     monkeypatch.setattr(
         ride_service.pricing, "eligible_car_classes", _async_list

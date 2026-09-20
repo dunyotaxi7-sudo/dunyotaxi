@@ -24,7 +24,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
-from app.core.redis_client import get_redis, ride_meter_key
+from app.core.redis_client import (
+    BUSY_DRIVERS_KEY,
+    active_ride_key,
+    get_redis,
+    ride_meter_key,
+)
 from app.models import Driver, Payment, PromoCode, PromoUsage, Ride, Wallet
 from app.services import location, matching, pricing, push, service_area
 from app.services.geo import haversine_km, haversine_m, point_wkt
@@ -54,21 +59,63 @@ _current_offer: dict[str, set[str]] = {}
 
 # Active ride per driver, so the driver-location WS can relay live position to
 # the right passenger: driver_id -> (ride_id, passenger_user_id).
-_active_ride_by_driver: dict[str, tuple[str, str]] = {}
 
 
-def set_active_ride(driver_id: str, ride_id: str, passenger_user_id: str) -> None:
-    _active_ride_by_driver[driver_id] = (ride_id, passenger_user_id)
+# Which driver is on which ride. In Redis rather than process memory, because
+# three things depended on it surviving a restart and none of them did:
+#
+#   * the distance meter only accumulates while this lookup answers, so an API
+#     restart mid-trip silently stopped metering and the passenger was charged
+#     the minimum fare;
+#   * dispatch skips drivers listed here, so after a restart a driver already
+#     on a trip could be offered — or force-assigned — a second one;
+#   * a driver whose ride ended outside set_status stayed "busy" forever.
+#
+# The TTL is a backstop for a trip that never ends cleanly; ordinary
+# completion and cancellation both clear the entry.
+ACTIVE_RIDE_TTL_SECONDS = 12 * 3600
 
 
-def clear_active_ride(driver_id: str | None) -> None:
-    if driver_id:
-        _active_ride_by_driver.pop(driver_id, None)
+async def set_active_ride(
+    r, driver_id: str, ride_id: str, passenger_user_id: str
+) -> None:
+    await r.set(
+        active_ride_key(driver_id),
+        f"{ride_id}|{passenger_user_id}",
+        ex=ACTIVE_RIDE_TTL_SECONDS,
+    )
+    await r.sadd(BUSY_DRIVERS_KEY, driver_id)
 
 
-def get_active_ride_for_driver(driver_id: str) -> tuple[str, str] | None:
+async def clear_active_ride(r, driver_id: str | None) -> None:
+    if not driver_id:
+        return
+    await r.delete(active_ride_key(driver_id))
+    await r.srem(BUSY_DRIVERS_KEY, driver_id)
+
+
+async def get_active_ride_for_driver(r, driver_id: str) -> tuple[str, str] | None:
     """Returns (ride_id, passenger_user_id) if the driver has an active ride."""
-    return _active_ride_by_driver.get(driver_id)
+    raw = await r.get(active_ride_key(driver_id))
+    if not raw:
+        # The key expired but the set still lists them: heal it here so a
+        # driver cannot be left permanently busy by a trip that never ended.
+        await r.srem(BUSY_DRIVERS_KEY, driver_id)
+        return None
+    ride_id, _, passenger_user_id = raw.partition("|")
+    return (ride_id, passenger_user_id)
+
+
+async def busy_driver_ids(r) -> set[str]:
+    """Drivers dispatch must skip — those on a trip right now."""
+    listed = await r.smembers(BUSY_DRIVERS_KEY)
+    alive: set[str] = set()
+    for driver_id in listed:
+        if await r.exists(active_ride_key(driver_id)):
+            alive.add(driver_id)
+        else:
+            await r.srem(BUSY_DRIVERS_KEY, driver_id)
+    return alive
 
 
 def pending_offer_for_driver(driver_id: str) -> str | None:
@@ -165,7 +212,7 @@ async def relay_driver_location(r, driver_id: str, lat: float, lng: float) -> No
     relay it to that passenger. Shared by the location WS and the HTTP endpoint
     used for background updates."""
     await location.set_location(r, driver_id, lat, lng)
-    active = get_active_ride_for_driver(driver_id)
+    active = await get_active_ride_for_driver(r, driver_id)
     if active is not None:
         ride_id, passenger_user_id = active
         await _meter_add(r, ride_id, lat, lng)
@@ -447,7 +494,7 @@ async def _dispatch_loop(
                     busy = (
                         set().union(*_current_offer.values())
                         if _current_offer else set()
-                    ) | set(_active_ride_by_driver.keys())
+                    ) | await busy_driver_ids(r)
                     candidates = await matching.find_nearest_drivers(
                         db, r, lat, lng, exclude=rejected | busy,
                         radii=[settings.broadcast_radius_meters],
@@ -470,9 +517,10 @@ async def _dispatch_loop(
 
             # Atomic claim (no await before setting _current_offer): drop any
             # driver another order grabbed since selection.
+            on_a_trip = await busy_driver_ids(r)
             claimed = [
                 (d, dm) for d, dm in targets
-                if d not in _active_ride_by_driver
+                if d not in on_a_trip
                 and not any(d in s for s in _current_offer.values())
             ]
             if not claimed:
@@ -570,7 +618,7 @@ async def _assign_driver(ride_id: str, driver_id: str) -> None:
         await db.commit()
         await db.refresh(ride)
         # Remember this pairing so live driver GPS can be relayed to the rider.
-        set_active_ride(driver_id, ride_id, str(ride.passenger_id))
+        await set_active_ride(get_redis(), driver_id, ride_id, str(ride.passenger_id))
         await _notify_passenger(ride, extra={"driver_id": driver_id})
 
 
@@ -634,7 +682,7 @@ async def claim_ride(db: AsyncSession, ride_id: uuid.UUID, driver) -> Ride:
     the ride is still 'searching'. Raises RideError('already taken') if lost."""
     if await driver_below_floor(db, driver):
         raise RideError("balance below limit")
-    if get_active_ride_for_driver(str(driver.id)) is not None:
+    if await get_active_ride_for_driver(get_redis(), str(driver.id)) is not None:
         raise RideError("finish your current ride first")
     res = await db.execute(
         update(Ride)
@@ -646,7 +694,7 @@ async def claim_ride(db: AsyncSession, ride_id: uuid.UUID, driver) -> Ride:
         raise RideError("already taken")
     await db.commit()
     ride = await db.get(Ride, ride_id)
-    set_active_ride(str(driver.id), str(ride_id), str(ride.passenger_id))
+    await set_active_ride(get_redis(), str(driver.id), str(ride_id), str(ride.passenger_id))
     _current_offer.pop(str(ride_id), None)
     offer_broker.cancel(str(ride_id))
     await _notify_passenger(ride, extra={"driver_id": str(driver.id)})
@@ -705,7 +753,7 @@ async def _announce_and_fallback(ride_id: str, lat: float, lng: float) -> None:
             if ride is None or ride.status != "searching":
                 return
             eligible = await pricing.eligible_car_classes(db, ride.car_type)
-            skip = set(_active_ride_by_driver.keys())
+            skip = await busy_driver_ids(r)
             own = await _own_driver_id(db, ride.passenger_id)
             if own:
                 skip.add(own)
@@ -754,7 +802,7 @@ async def _offer_rounds(
                 busy = (
                     set().union(*_current_offer.values())
                     if _current_offer else set()
-                ) | set(_active_ride_by_driver.keys())
+                ) | await busy_driver_ids(r)
                 candidates = await matching.find_nearest_drivers(
                     db, r, lat, lng, exclude=rejected | busy,
                     radii=[settings.broadcast_radius_meters],
@@ -775,7 +823,7 @@ async def _offer_rounds(
             # driver another order grabbed since selection.
             claimed = [
                 (c.driver_id, c.distance_m) for c in candidates
-                if c.driver_id not in _active_ride_by_driver
+                if c.driver_id not in await busy_driver_ids(r)
                 and not any(c.driver_id in s for s in _current_offer.values())
             ]
             if not claimed:
@@ -825,7 +873,7 @@ async def force_assign(ride_id: str, driver_id: str) -> bool:
         ride.accepted_at = datetime.now()
         await db.commit()
         await db.refresh(ride)
-        set_active_ride(driver_id, ride_id, str(ride.passenger_id))
+        await set_active_ride(get_redis(), driver_id, ride_id, str(ride.passenger_id))
         await _notify_passenger(ride, extra={"driver_id": driver_id})
     await _notify_driver_assigned(driver_id, ride_id)
     return True
@@ -872,7 +920,7 @@ async def decline_assigned(ride_id: str, driver_id: str) -> bool:
         ride.accepted_at = None
         await db.commit()
         await db.refresh(ride)
-        clear_active_ride(driver_id)
+        await clear_active_ride(get_redis(), driver_id)
         await _notify_passenger(ride)
 
     # Re-dispatch to the nearest driver, skipping the one who declined.
@@ -951,7 +999,7 @@ async def set_status(
         revoke_ids = _current_offer.pop(str(ride_id), set())
 
     if target in ("completed", "cancelled") and ride.driver_id:
-        clear_active_ride(str(ride.driver_id))
+        await clear_active_ride(get_redis(), str(ride.driver_id))
 
     await db.commit()
     await db.refresh(ride)
@@ -1096,7 +1144,7 @@ async def complete_ride(db: AsyncSession, ride_id: uuid.UUID,
 
     await db.commit()  # commit triggers process_ride_completion in the DB
     await db.refresh(ride)
-    clear_active_ride(str(ride.driver_id) if ride.driver_id else None)
+    await clear_active_ride(get_redis(), str(ride.driver_id) if ride.driver_id else None)
     await _notify_passenger(ride)
     return ride
 
