@@ -17,7 +17,7 @@ from fastapi import (
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.api.deps import get_current_driver, get_current_user, get_redis_dep
 from app.core.database import get_db
@@ -249,6 +249,10 @@ async def ride_earning(
 class LocationIn(BaseModel):
     lat: float
     lng: float
+    # Radius of uncertainty in metres, straight from the OS. Optional: older
+    # app builds do not send it, and a position without it is still worth
+    # having for the map — it just cannot be trusted to move the meter.
+    accuracy_m: float | None = Field(default=None, ge=0)
 
 
 @router.post("/location", status_code=204)
@@ -259,7 +263,10 @@ async def update_location(
 ):
     """HTTP location update — used for background streaming (where holding a
     WebSocket open isn't reliable). Same effect as the location WS."""
-    await ride_service.relay_driver_location(r, str(driver.id), payload.lat, payload.lng)
+    await ride_service.relay_driver_location(
+        r, str(driver.id), payload.lat, payload.lng,
+        accuracy_m=payload.accuracy_m,
+    )
 
 
 @router.get("/location-status")

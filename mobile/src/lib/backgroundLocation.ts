@@ -5,14 +5,21 @@ import { memoToken, tokenStorage } from "./storage";
 
 export const DRIVER_LOCATION_TASK = "driver-location-task";
 
-function postFix(token: string, lat: number, lng: number): Promise<Response> {
+function postFix(
+  token: string,
+  lat: number,
+  lng: number,
+  accuracyM: number | null,
+): Promise<Response> {
   return fetch(`${API_URL}/driver/location`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ lat, lng }),
+    // The server ignores a vague fix for metering — billing kilometres off a
+    // 100 m-uncertain position would charge for GPS noise.
+    body: JSON.stringify({ lat, lng, accuracy_m: accuracyM }),
   });
 }
 
@@ -79,9 +86,10 @@ TaskManager.defineTask(DRIVER_LOCATION_TASK, async ({ data, error }) => {
   const { access } = await tokenStorage.get();
   if (!access) return;
 
-  const { latitude: lat, longitude: lng } = loc.coords;
+  const { latitude: lat, longitude: lng, accuracy } = loc.coords;
+  const accuracyM = accuracy ?? null;
   try {
-    const res = await postFix(access, lat, lng);
+    const res = await postFix(access, lat, lng, accuracyM);
     // An access token lasts an hour; a driver's shift is longer. Without this
     // the expiry silently ended their shift as far as dispatch was concerned —
     // the app still said "Siz onlaynsiz" and still burned GPS, but every fix
@@ -89,7 +97,7 @@ TaskManager.defineTask(DRIVER_LOCATION_TASK, async ({ data, error }) => {
     // until they happened to open the app.
     if (res.status === 401) {
       const fresh = await refreshAccess();
-      if (fresh) await postFix(fresh, lat, lng);
+      if (fresh) await postFix(fresh, lat, lng, accuracyM);
     }
   } catch {
     // best-effort; the next fix will retry

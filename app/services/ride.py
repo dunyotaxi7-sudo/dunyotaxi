@@ -149,6 +149,13 @@ METER_MAX_SPEED_MPS = 55.0
 # The honest fix is for the app to send the fix's own timestamp, and then this
 # floor can go; until the app ships that, arrival time is all the server has.
 METER_MIN_DT_SECONDS = 5.0
+# A fix this uncertain can appear to jump twenty metres while the car is
+# parked. Since updates now arrive on a timer rather than only after real
+# movement, a stationary car reports constantly — so a rough fix gets many
+# chances to clear the jitter threshold and bill for distance nobody drove.
+# Such a fix still updates the live position, because a rough position beats
+# none for dispatch; it simply does not move the meter.
+METER_MAX_ACCURACY_M = 50.0
 # Long enough to outlive any trip, short enough not to litter Redis.
 METER_TTL_SECONDS = 24 * 3600
 
@@ -194,8 +201,12 @@ async def meter_snapshot(
     return {"km": km, "price_sum": price}
 
 
-async def _meter_add(r, ride_id: str, lat: float, lng: float) -> None:
+async def _meter_add(
+    r, ride_id: str, lat: float, lng: float, accuracy_m: float | None = None
+) -> None:
     """Fold one GPS fix into the meter. No-op unless the meter is open."""
+    if accuracy_m is not None and accuracy_m > METER_MAX_ACCURACY_M:
+        return  # too vague to bill on
     key = ride_meter_key(ride_id)
     anchor = await r.hgetall(key)
     if not anchor:
@@ -230,7 +241,9 @@ async def _meter_add(r, ride_id: str, lat: float, lng: float) -> None:
     await r.expire(key, METER_TTL_SECONDS)
 
 
-async def relay_driver_location(r, driver_id: str, lat: float, lng: float) -> None:
+async def relay_driver_location(
+    r, driver_id: str, lat: float, lng: float, accuracy_m: float | None = None
+) -> None:
     """Store a driver's live position (Redis GEO) and, if they're on a ride,
     relay it to that passenger. Shared by the location WS and the HTTP endpoint
     used for background updates."""
@@ -238,7 +251,7 @@ async def relay_driver_location(r, driver_id: str, lat: float, lng: float) -> No
     active = await get_active_ride_for_driver(r, driver_id)
     if active is not None:
         ride_id, passenger_user_id = active
-        await _meter_add(r, ride_id, lat, lng)
+        await _meter_add(r, ride_id, lat, lng, accuracy_m)
         await passenger_ws.send(passenger_user_id, {
             "type": "driver_location",
             "ride_id": ride_id,

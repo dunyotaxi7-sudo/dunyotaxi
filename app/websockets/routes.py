@@ -47,10 +47,14 @@ async def driver_location(ws: WebSocket):
                 data = json.loads(raw)
                 lat = float(data["lat"])
                 lng = float(data["lng"])
+                raw_acc = data.get("accuracy_m")
+                accuracy_m = float(raw_acc) if raw_acc is not None else None
             except (ValueError, KeyError, TypeError):
                 await ws.send_json({"type": "error", "detail": "expected {lat,lng}"})
                 continue
-            await ride_service.relay_driver_location(r, driver_id, lat, lng)
+            await ride_service.relay_driver_location(
+                r, driver_id, lat, lng, accuracy_m
+            )
             last = (lat, lng)
             await ws.send_json({"type": "ack", "lat": lat, "lng": lng})
     except WebSocketDisconnect:

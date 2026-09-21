@@ -28,8 +28,10 @@ export const driverApi = {
   me: () => api.get<DriverProfile>("/driver/me").then((r) => r.data),
 
   /** Push one position. Used by the foreground streamer during a trip. */
-  sendLocation: (lat: number, lng: number) =>
-    api.post("/driver/location", { lat, lng }).then((r) => r.data),
+  sendLocation: (lat: number, lng: number, accuracyM: number | null = null) =>
+    api
+      .post("/driver/location", { lat, lng, accuracy_m: accuracyM })
+      .then((r) => r.data),
 
   /**
    * Whether the server is actually receiving this driver's GPS. The app cannot

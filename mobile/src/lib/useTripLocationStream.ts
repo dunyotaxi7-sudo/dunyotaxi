@@ -37,7 +37,11 @@ export function useTripLocationStream(enabled: boolean) {
         (pos) => {
           // Fire and forget: a dropped fix is not worth interrupting a trip.
           void driverApi
-            .sendLocation(pos.coords.latitude, pos.coords.longitude)
+            .sendLocation(
+              pos.coords.latitude,
+              pos.coords.longitude,
+              pos.coords.accuracy ?? null,
+            )
             .catch(() => {});
         },
       );

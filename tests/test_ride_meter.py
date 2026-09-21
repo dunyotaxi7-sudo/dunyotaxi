@@ -165,3 +165,49 @@ async def test_a_burst_of_fixes_is_not_mistaken_for_teleporting(r, clock):
 
     km = float(await ride_service.read_meter_km(r, RIDE))
     assert km > 0.3, "a burst must still be measured, not discarded"
+
+
+# ── Fix quality ───────────────────────────────────────────────────────
+# Updates now arrive on a timer rather than only after real movement, so a
+# parked car reports constantly. That gives a vague fix many chances to clear
+# the jitter threshold and bill for distance nobody drove.
+
+
+async def test_a_vague_fix_does_not_move_the_meter(r, clock):
+    await _anchor_at(r, LAT, LNG)
+    clock.tick()
+    # 111 m of apparent movement, from a fix uncertain to within 120 m.
+    await ride_service._meter_add(r, RIDE, LAT + 0.001, LNG, accuracy_m=120.0)
+
+    assert await ride_service.read_meter_km(r, RIDE) == 0
+
+
+async def test_a_sharp_fix_still_counts(r, clock):
+    await _anchor_at(r, LAT, LNG)
+    clock.tick()
+    await ride_service._meter_add(r, RIDE, LAT + 0.001, LNG, accuracy_m=8.0)
+
+    km = float(await ride_service.read_meter_km(r, RIDE))
+    assert 0.10 < km < 0.12
+
+
+async def test_an_older_app_that_sends_no_accuracy_still_meters(r, clock):
+    """Accuracy is optional: builds before this change omit it, and their
+    trips must still be measured rather than silently costing the minimum."""
+    await _anchor_at(r, LAT, LNG)
+    clock.tick()
+    await ride_service._meter_add(r, RIDE, LAT + 0.001, LNG, accuracy_m=None)
+
+    assert float(await ride_service.read_meter_km(r, RIDE)) > 0.09
+
+
+async def test_a_parked_car_reporting_every_ten_seconds_bills_nothing(r, clock):
+    """The exact new case: a stationary car now sends a fix on a timer. Thirty
+    of them, each wandering a few metres, must add up to nothing."""
+    await _anchor_at(r, LAT, LNG)
+    for i in range(30):
+        clock.tick(10)
+        drift = 0.00003 * (1 if i % 2 else -1)  # ~3 m either way
+        await ride_service._meter_add(r, RIDE, LAT + drift, LNG + drift, accuracy_m=10.0)
+
+    assert await ride_service.read_meter_km(r, RIDE) == 0
