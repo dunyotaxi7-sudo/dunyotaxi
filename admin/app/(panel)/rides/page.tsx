@@ -100,7 +100,12 @@ export default function RidesPage() {
                     <td className="px-4 py-3">{r.passenger_name ?? "—"}</td>
                     <td className="px-4 py-3">{r.driver_name ?? "—"}</td>
                     <td className="px-4 py-3 max-w-xs truncate">{r.from_address} → {r.to_address}</td>
-                    <td className="px-4 py-3">{formatKm(r.distance_km)}</td>
+                    <td className="px-4 py-3">
+                      {formatKm(r.distance_km)}
+                      {r.fare_mode === "meter" ? (
+                        <span className="text-xs text-muted"> · hisoblagich</span>
+                      ) : null}
+                    </td>
                     <td className="px-4 py-3">{formatSom(r.price_sum)}</td>
                     <td className="px-4 py-3"><Badge tone={STATUS_TONE[r.status]}>{rideStatusLabel[r.status]}</Badge></td>
                     <td className="px-4 py-3 text-right">

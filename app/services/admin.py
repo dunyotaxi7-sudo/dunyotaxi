@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from app.core.config import settings
+from app.core.redis_client import get_redis
 from app.core.timezone import local_day
 from app.models import (
     AdminAuditLog,
@@ -281,7 +282,11 @@ async def list_rides(
             "driver_name": drv_name,
             "from_address": ride.from_address,
             "to_address": ride.to_address,
-            "distance_km": ride.distance_km,
+            # For a metered ride the measured distance IS the distance; there
+            # was never an estimate to compare it against.
+            "distance_km": (ride.metered_km if ride.fare_mode == "meter"
+                            else ride.distance_km),
+            "fare_mode": ride.fare_mode,
             "price_sum": ride.price_sum,
             "status": ride.status,
             "payment_method": ride.payment_method,
@@ -1020,7 +1025,18 @@ async def list_live_rides(db: AsyncSession) -> list[dict]:
         .where(Ride.status.in_(["searching", "accepted", "arrived", "ongoing"]))
         .order_by(Ride.created_at.desc())
     )
-    rows = await db.execute(stmt)
+    rows = list(await db.execute(stmt))
+
+    # A metered ride carries no price until it ends, so the board would show a
+    # blank where the money goes. Read the running meter instead — it is the
+    # only thing that tells an operator how the trip is going. Only for trips
+    # actually under way; the others have nothing to read.
+    r = get_redis()
+    live_km: dict = {}
+    for ride, *_ in rows:
+        if ride.fare_mode == "meter" and ride.status == "ongoing":
+            live_km[ride.id] = await ride_service.read_meter_km(r, str(ride.id))
+
     return [
         {
             "id": ride.id,
@@ -1032,6 +1048,8 @@ async def list_live_rides(db: AsyncSession) -> list[dict]:
             "to_address": ride.to_address,
             "price_sum": ride.price_sum,
             "status": ride.status,
+            "fare_mode": ride.fare_mode,
+            "metered_km": live_km.get(ride.id, ride.metered_km),
             "created_at": ride.created_at,
             "accepted_at": ride.accepted_at,
         }

@@ -313,8 +313,12 @@ class LiveRideRow(BaseModel):
     driver_phone: str | None = None
     from_address: str
     to_address: str | None = None
+    # Null for a metered ride until it settles — metered_km is what to show
+    # in the meantime.
     price_sum: int | None = None
     status: str
+    fare_mode: str = "fixed"
+    metered_km: Decimal | None = None
     created_at: datetime | None = None
     accepted_at: datetime | None = None
 
@@ -346,6 +350,7 @@ class AdminRideRow(BaseModel):
     status: str
     payment_method: str
     created_at: datetime | None = None
+    fare_mode: str = "fixed"
 
 
 class AdminRideRating(BaseModel):

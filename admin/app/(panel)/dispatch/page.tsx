@@ -107,7 +107,11 @@ function OrderCard({
     <div className="card p-4">
       <div className="flex items-start justify-between gap-3">
         <Badge tone={TONE[order.status]}>{rideStatusLabel[order.status]}</Badge>
-        <span className="font-semibold">{formatSom(order.price_sum)}</span>
+        <span className="font-semibold">
+          {order.fare_mode === "meter"
+            ? `${order.metered_km != null ? Number(order.metered_km).toFixed(2) : "0.00"} km · hisoblagich`
+            : formatSom(order.price_sum)}
+        </span>
       </div>
       <div className="mt-2 text-sm">
         <div className="flex items-center gap-2">

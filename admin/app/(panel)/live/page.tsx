@@ -131,8 +131,20 @@ function OrderCard({ r, now }: { r: LiveRideRow; now: number }) {
             ) : null}
           </div>
         </div>
-        <div className="text-right font-semibold tabular-nums">
-          {formatSom(r.price_sum)}
+        <div className="text-right tabular-nums">
+          {r.fare_mode === "meter" ? (
+            // No price exists until a metered trip settles, so show what the
+            // meter has counted — otherwise this column is simply blank for
+            // the whole ride.
+            <>
+              <div className="font-semibold">
+                {r.metered_km != null ? `${Number(r.metered_km).toFixed(2)} km` : "—"}
+              </div>
+              <div className="text-xs text-muted">hisoblagich</div>
+            </>
+          ) : (
+            <div className="font-semibold">{formatSom(r.price_sum)}</div>
+          )}
         </div>
       </div>
 

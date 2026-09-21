@@ -286,6 +286,7 @@ export interface AdminRideRow {
   status: RideStatus;
   payment_method: string;
   created_at: string | null;
+  fare_mode: FareMode;
 }
 
 export interface NearbyOrderDriver {
@@ -311,6 +312,9 @@ export interface LiveRideRow {
   status: RideStatus;
   created_at: string | null;
   accepted_at: string | null;
+  fare_mode: FareMode;
+  /** Running distance while a metered trip is under way; final once it ends. */
+  metered_km: string | null;
 }
 
 export interface AdminRideRating {
