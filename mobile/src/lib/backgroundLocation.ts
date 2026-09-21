@@ -136,10 +136,18 @@ export async function startBackgroundLocation(): Promise<LocationStart> {
 
   await Location.startLocationUpdatesAsync(DRIVER_LOCATION_TASK, {
     accuracy: Location.Accuracy.Balanced,
-    timeInterval: 5000,
-    distanceInterval: 15,
-    // Battery: iOS pauses when stationary and resumes on movement.
-    pausesUpdatesAutomatically: true,
+    // A heartbeat, not just a movement report. distanceInterval was 15 m,
+    // which meant a parked car emitted nothing at all — and a driver waiting
+    // for work is, by definition, parked. Their last position went stale after
+    // the server's 120-second window and they dropped out of the dispatch
+    // pool: still "Onlayn" on their phone, invisible to every order. 0 removes
+    // the distance filter so the interval alone governs.
+    timeInterval: 10000,
+    distanceInterval: 0,
+    // Was true, which lets iOS pause updates when it decides the device is
+    // stationary — the same silence, for the same drivers. A taxi waiting at a
+    // rank must keep reporting precisely because it is not moving.
+    pausesUpdatesAutomatically: false,
     activityType: Location.ActivityType.AutomotiveNavigation,
     showsBackgroundLocationIndicator: false,
     foregroundService: {
