@@ -6,6 +6,7 @@
 //
 // The map needs NEXT_PUBLIC_YANDEX_MAPS_KEY. Without it we degrade to a
 // coordinates panel — search still works, only the tiles are missing.
+import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BUKHARA,
@@ -17,10 +18,13 @@ import {
   reverseGeocode,
   suggest,
   type LngLat,
+  type YMapChild,
   type Suggestion,
   type YMapInstance,
   type YMaps3,
 } from "@/lib/yandex";
+import { mapApi } from "@/lib/api";
+import type { OnlineDriver } from "@/lib/types";
 
 export type Loc = { lat: number; lng: number; address: string };
 type Which = "pickup" | "destination";
@@ -58,6 +62,16 @@ export function OrderLocationPicker({
   activeRef.current = active;
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+
+  // Who is out there right now. The operator is choosing a pickup point, so
+  // seeing which cars are near it — and which of them are free — is the whole
+  // reason to look at this map.
+  const drivers = useQuery({
+    queryKey: ["map-online-drivers"],
+    queryFn: () => mapApi.onlineDrivers(),
+    refetchInterval: 10000,
+    enabled: mapOpen,
+  });
 
   const handleMapClick = useCallback(async (lat: number, lng: number) => {
     const which = activeRef.current;
@@ -124,18 +138,47 @@ export function OrderLocationPicker({
 
       {mapOpen ? (
         <>
-          <p className="text-xs text-muted">
-            Xaritada bosish <b>{active === "pickup" ? "Qayerdan" : "Qayerga"}</b>{" "}
-            nuqtasini o‘rnatadi.
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
+            <span>
+              Xaritada bosish{" "}
+              <b>{active === "pickup" ? "Qayerdan" : "Qayerga"}</b> nuqtasini
+              o‘rnatadi.
+            </span>
+            {/* Without this the pins are two shades of "a car is here". */}
+            <span className="flex items-center gap-3">
+              <Legend color="#16a34a">
+                Bo‘sh ({drivers.data?.filter((d) => !d.busy).length ?? 0})
+              </Legend>
+              <Legend color="#f59e0b">
+                Band ({drivers.data?.filter((d) => d.busy).length ?? 0})
+              </Legend>
+            </span>
+          </div>
           {YANDEX_MAPS_KEY ? (
-            <YandexMap pickup={pickup} destination={destination} onClickPoint={handleMapClick} />
+            <YandexMap
+              pickup={pickup}
+              destination={destination}
+              drivers={drivers.data ?? []}
+              onClickPoint={handleMapClick}
+            />
           ) : (
             <NoMapFallback pickup={pickup} destination={destination} />
           )}
         </>
       ) : null}
     </div>
+  );
+}
+
+function Legend({ color, children }: { color: string; children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className="inline-block h-2.5 w-2.5 rounded-full"
+        style={{ background: color }}
+      />
+      {children}
+    </span>
   );
 }
 
@@ -157,19 +200,44 @@ function markerEl(label: "A" | "B"): HTMLElement {
   return el;
 }
 
+type DriverPin = {
+  marker: YMapChild & { update: (props: { coordinates: LngLat }) => void };
+  busy: boolean;
+};
+
+function driverEl(busy: boolean): HTMLElement {
+  const el = document.createElement("div");
+  el.textContent = "🚗";
+  el.title = busy ? "Band" : "Bo'sh";
+  el.style.cssText =
+    "width:24px;height:24px;border-radius:50%;display:flex;align-items:center;" +
+    "justify-content:center;font-size:13px;border:2px solid #fff;" +
+    "box-shadow:0 1px 3px rgba(0,0,0,.3);transform:translate(-50%,-50%);" +
+    // Green = free, amber = on a trip. An operator choosing a pickup point
+    // needs to see who could actually take the order, not just who is online.
+    `background:${busy ? "#f59e0b" : "#16a34a"};`;
+  return el;
+}
+
 function YandexMap({
   pickup,
   destination,
+  drivers,
   onClickPoint,
 }: {
   pickup: Loc | null;
   destination: Loc | null;
+  drivers: OnlineDriver[];
   onClickPoint: (lat: number, lng: number) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<YMaps3 | null>(null);
   const mapRef = useRef<YMapInstance | null>(null);
   const markersRef = useRef<{ A?: any; B?: any; line?: any }>({});
+  // Keyed by driver id so a moving car is updated rather than re-added. The
+  // busy flag is kept alongside because the pin's colour lives in its DOM
+  // element, so a change of availability needs a new marker, not an update.
+  const driverMarkersRef = useRef<Map<string, DriverPin>>(new Map());
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const onClickRef = useRef(onClickPoint);
   onClickRef.current = onClickPoint;
@@ -259,6 +327,46 @@ function YandexMap({
       m.line = undefined;
     }
   }, [pickup, destination, state]);
+
+  // Live driver pins. Kept separate from the A/B markers: they change on their
+  // own schedule (a poll every few seconds) and must not disturb the points
+  // the operator is placing.
+  useEffect(() => {
+    const y = apiRef.current;
+    const map = mapRef.current;
+    if (!y || !map || state !== "ready") return;
+    const live = driverMarkersRef.current;
+    const seen = new Set<string>();
+
+    for (const d of drivers) {
+      seen.add(d.driver_id);
+      const coords: LngLat = [d.lng, d.lat];
+      const existing = live.get(d.driver_id);
+      if (existing) {
+        existing.marker.update({ coordinates: coords });
+        // Re-create only when availability changed — the pin's colour is part
+        // of the element, not of its coordinates.
+        if (existing.busy !== d.busy) {
+          map.removeChild(existing.marker);
+          const marker = new y.YMapMarker({ coordinates: coords }, driverEl(d.busy));
+          map.addChild(marker);
+          live.set(d.driver_id, { marker, busy: d.busy });
+        }
+      } else {
+        const marker = new y.YMapMarker({ coordinates: coords }, driverEl(d.busy));
+        map.addChild(marker);
+        live.set(d.driver_id, { marker, busy: d.busy });
+      }
+    }
+
+    // Drivers who went offline since the last poll.
+    for (const [id, entry] of live) {
+      if (!seen.has(id)) {
+        map.removeChild(entry.marker);
+        live.delete(id);
+      }
+    }
+  }, [drivers, state]);
 
   // Pan to a point when it is newly set (not on every address refinement).
   const lastKeys = useRef<{ A?: string; B?: string }>({});

@@ -661,6 +661,8 @@ async def online_drivers(
         select(Driver).where(Driver.id.in_(ids))
     )
     meta = {str(d.id): d for d in res.scalars()}
+    # One read for the whole map rather than a lookup per driver.
+    busy = await ride_service.busy_driver_ids(r)
     out = []
     for driver_id, lat, lng in rows:
         d = meta.get(driver_id)
@@ -669,6 +671,7 @@ async def online_drivers(
             rating=float(d.rating) if d else None,
             car_model=d.car_model if d else None,
             car_number=d.car_number if d else None,
+            busy=driver_id in busy,
         ))
     return out
 

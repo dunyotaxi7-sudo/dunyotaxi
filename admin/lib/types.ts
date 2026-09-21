@@ -158,6 +158,8 @@ export interface OnlineDriver {
   rating: number | null;
   car_model: string | null;
   car_number: string | null;
+  /** On a trip right now — cannot take this order. */
+  busy: boolean;
 }
 
 export interface RidePublic {

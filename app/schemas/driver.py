@@ -163,3 +163,6 @@ class OnlineDriver(BaseModel):
     rating: float | None = None
     car_model: str | None = None
     car_number: str | None = None
+    # True while this driver is on a trip. An operator picking a pickup point
+    # needs to know who could actually take the order, not just who is online.
+    busy: bool = False
