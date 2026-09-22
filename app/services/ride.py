@@ -719,6 +719,7 @@ async def _offer_to_driver(
             get_redis(), user_id, "Yangi buyurtma!",
             "Sizga yangi sayohat taklifi bor",
             data={"type": "ride_offer", "ride_id": ride_id},
+            channel_id="orders", sound="order.wav",
         )
     except Exception:  # noqa: BLE001
         log.exception("offer push failed for driver %s", driver_id)
@@ -857,6 +858,7 @@ async def _announce_and_fallback(ride_id: str, lat: float, lng: float) -> None:
                         r, user_id, "Yangi buyurtma!",
                         "Yaqiningizda yangi buyurtma bor",
                         data={"type": "new_order", "ride_id": ride_id},
+                        channel_id="orders", sound="order.wav",
                     )
                 except Exception:  # noqa: BLE001
                     log.exception("new-order push failed for %s", c.driver_id)

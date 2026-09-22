@@ -27,7 +27,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 13,
+      "versionCode": 14,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
@@ -63,7 +63,10 @@
       [
         "expo-notifications",
         {
-          "color": "#2563eb"
+          "color": "#2563eb",
+          "sounds": [
+            "./assets/sounds/order.wav"
+          ]
         }
       ],
       [

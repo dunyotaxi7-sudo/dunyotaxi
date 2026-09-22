@@ -56,9 +56,23 @@ export async function registerForPush(): Promise<string | null> {
   if (!Device.isDevice) return null; // remote push doesn't work on simulators
 
   if (Platform.OS === "android") {
+    // Everything that is not an order: status changes, location requests.
     await Notifications.setNotificationChannelAsync("default", {
       name: "Umumiy",
+      importance: Notifications.AndroidImportance.HIGH,
+    });
+    // Orders ring. A driver with the app closed and the phone in a pocket has
+    // fifteen seconds to accept an offer, so this is the one notification that
+    // has to be heard rather than noticed later. The sound is bundled by the
+    // expo-notifications config plugin, which is why the base filename alone
+    // is the right reference here.
+    await Notifications.setNotificationChannelAsync("orders", {
+      name: "Buyurtmalar",
       importance: Notifications.AndroidImportance.MAX,
+      sound: "order.wav",
+      vibrationPattern: [0, 400, 200, 400],
+      enableVibrate: true,
+      bypassDnd: false,
     });
   }
 

@@ -42,8 +42,17 @@ async def send_to_user(
     title: str,
     body: str,
     data: dict | None = None,
+    channel_id: str = "default",
+    sound: str = "default",
 ) -> None:
-    """Best-effort push to all of a user's devices. Never raises."""
+    """Best-effort push to all of a user's devices. Never raises.
+
+    ``channel_id`` decides how loud this is on Android, and omitting it was a
+    real fault: expo-notifications then falls back to a channel it invents
+    called "Miscellaneous", so a ride offer arrived with the prominence of a
+    marketing message rather than on the MAX-importance channel the app sets
+    up. Orders pass "orders", which rings; everything else stays on "default".
+    """
     try:
         tokens = await get_tokens(r, user_id)
         tokens = [t for t in tokens if _looks_like_expo_token(t)]
@@ -54,9 +63,10 @@ async def send_to_user(
                 "to": t,
                 "title": title,
                 "body": body,
-                "sound": "default",
+                "sound": sound,
                 "data": data or {},
                 "priority": "high",
+                "channelId": channel_id,
             }
             for t in tokens
         ]
