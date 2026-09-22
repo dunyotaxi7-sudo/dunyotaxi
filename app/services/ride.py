@@ -241,6 +241,77 @@ async def _meter_add(
     await r.expire(key, METER_TTL_SECONDS)
 
 
+async def _meter_add_batch(r, ride_id: str, fixes: list) -> None:
+    """Fold a replayed backlog of fixes into the meter, in order.
+
+    The phone keeps receiving GPS with no internet — satellites do not need a
+    data connection — so an outage used to be measured as a straight line
+    between the last fix that got through and the first one after, losing the
+    shape of the road. These are the fixes it could not send at the time.
+
+    The client's timestamps order them, but they never decide how much distance
+    may be added: a modified app controls its own clock, and with a per-km fare
+    that is a licence to print money. One batch claiming "here at 14:00, forty
+    kilometres away at 15:00" looks like an ordinary 40 km/h drive. So the
+    whole batch is bounded by time the SERVER observed — at most what is
+    physically reachable since the last fix we actually accepted.
+    """
+    key = ride_meter_key(ride_id)
+    anchor = await r.hgetall(key)
+    if not anchor:
+        return
+
+    now = time.time()
+    prev_lat, prev_lng = anchor.get("lat"), anchor.get("lng")
+    try:
+        last_seen = float(anchor.get("ts", now))
+    except (TypeError, ValueError):
+        last_seen = now
+    budget_m = max(now - last_seen, 0.0) * METER_MAX_SPEED_MPS
+
+    added = 0.0
+    for fix in sorted(fixes, key=lambda f: f.ts):
+        if fix.accuracy_m is not None and fix.accuracy_m > METER_MAX_ACCURACY_M:
+            continue
+        if prev_lat is None or prev_lng is None:
+            prev_lat, prev_lng = str(fix.lat), str(fix.lng)
+            continue
+        try:
+            moved = haversine_m(float(prev_lat), float(prev_lng), fix.lat, fix.lng)
+        except (TypeError, ValueError):
+            continue
+        if moved < METER_MIN_MOVE_M:
+            continue  # jitter: keep the anchor so real creep still accrues
+        if added + moved > budget_m:
+            break  # beyond what the clock on our side allows
+        added += moved
+        prev_lat, prev_lng = str(fix.lat), str(fix.lng)
+
+    if added > 0:
+        await r.hincrbyfloat(key, "m", added)
+    if prev_lat is not None:
+        await r.hset(key, mapping={"lat": prev_lat, "lng": prev_lng, "ts": str(now)})
+        await r.expire(key, METER_TTL_SECONDS)
+
+
+async def relay_driver_location_batch(r, driver_id: str, fixes: list) -> None:
+    """A driver's backlog after a gap in coverage, newest fix winning the map."""
+    if not fixes:
+        return
+    newest = max(fixes, key=lambda f: f.ts)
+    await location.set_location(r, driver_id, newest.lat, newest.lng)
+    active = await get_active_ride_for_driver(r, driver_id)
+    if active is not None:
+        ride_id, passenger_user_id = active
+        await _meter_add_batch(r, ride_id, fixes)
+        await passenger_ws.send(passenger_user_id, {
+            "type": "driver_location",
+            "ride_id": ride_id,
+            "lat": newest.lat,
+            "lng": newest.lng,
+        })
+
+
 async def relay_driver_location(
     r, driver_id: str, lat: float, lng: float, accuracy_m: float | None = None
 ) -> None:

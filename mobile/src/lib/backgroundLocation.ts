@@ -5,23 +5,40 @@ import { memoToken, tokenStorage } from "./storage";
 
 export const DRIVER_LOCATION_TASK = "driver-location-task";
 
-function postFix(
-  token: string,
-  lat: number,
-  lng: number,
-  accuracyM: number | null,
-): Promise<Response> {
-  return fetch(`${API_URL}/driver/location`, {
+/**
+ * Positions the phone recorded but could not send.
+ *
+ * GPS needs no data connection, so a coverage gap leaves the driver holding
+ * fixes nobody has seen. Without this they were dropped and the trip was
+ * measured as a straight line across the gap — roughly 30% short of the road
+ * actually driven (the server's own road factor is 1.4), and the shortfall
+ * came out of the driver's fare.
+ *
+ * Held in memory rather than on disk: the only persistent store this app has
+ * is SecureStore, capped at about 2 KB per value, and a native storage
+ * dependency is a heavier change than this earns. The foreground service keeps
+ * this context alive for the shift, so the buffer survives everything short of
+ * the process being killed — which is the case a disk queue would add, at the
+ * cost of a new dependency.
+ */
+type PendingFix = { lat: number; lng: number; accuracy_m: number | null; ts: number };
+
+// ~5.5 hours at one fix every 10 seconds. Beyond that the oldest go: a backlog
+// that long means the shift is over, not that the tunnel was deep.
+const MAX_PENDING = 2000;
+let pending: PendingFix[] = [];
+
+function postBatch(token: string, fixes: PendingFix[]): Promise<Response> {
+  return fetch(`${API_URL}/driver/location/batch`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    // The server ignores a vague fix for metering — billing kilometres off a
-    // 100 m-uncertain position would charge for GPS noise.
-    body: JSON.stringify({ lat, lng, accuracy_m: accuracyM }),
+    body: JSON.stringify({ fixes }),
   });
 }
+
 
 // One in-flight refresh at a time — fixes arrive every ~5s and would otherwise
 // each kick off their own. After a failure, back off before trying again rather
@@ -88,8 +105,26 @@ TaskManager.defineTask(DRIVER_LOCATION_TASK, async ({ data, error }) => {
 
   const { latitude: lat, longitude: lng, accuracy } = loc.coords;
   const accuracyM = accuracy ?? null;
+
+  // Every fix goes through the buffer, so the ordinary path and the recovery
+  // path are the same code — a backlog is just a buffer with more in it.
+  pending.push({
+    lat,
+    lng,
+    accuracy_m: accuracyM,
+    ts: (loc.timestamp ?? Date.now()) / 1000,
+  });
+  if (pending.length > MAX_PENDING) pending = pending.slice(-MAX_PENDING);
+
   try {
-    const res = await postFix(access, lat, lng, accuracyM);
+    const sending = pending;
+    const res = await postBatch(access, sending);
+    if (res.ok) {
+      // Only drop what was actually sent; a fix that arrived while the request
+      // was in flight must not be lost with it.
+      pending = pending.slice(sending.length);
+      return;
+    }
     // An access token lasts an hour; a driver's shift is longer. Without this
     // the expiry silently ended their shift as far as dispatch was concerned —
     // the app still said "Siz onlaynsiz" and still burned GPS, but every fix
@@ -97,10 +132,13 @@ TaskManager.defineTask(DRIVER_LOCATION_TASK, async ({ data, error }) => {
     // until they happened to open the app.
     if (res.status === 401) {
       const fresh = await refreshAccess();
-      if (fresh) await postFix(fresh, lat, lng, accuracyM);
+      if (fresh) {
+        const retry = await postBatch(fresh, sending);
+        if (retry.ok) pending = pending.slice(sending.length);
+      }
     }
   } catch {
-    // best-effort; the next fix will retry
+    // Offline: keep the backlog and try again with the next fix.
   }
 });
 

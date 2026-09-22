@@ -255,6 +255,36 @@ class LocationIn(BaseModel):
     accuracy_m: float | None = Field(default=None, ge=0)
 
 
+class LocationFix(BaseModel):
+    """One buffered position, with the moment the phone recorded it."""
+
+    lat: float
+    lng: float
+    accuracy_m: float | None = Field(default=None, ge=0)
+    # Client epoch seconds. Orders the batch; never decides how much distance
+    # it may add — see _meter_add_batch.
+    ts: float
+
+
+class LocationBatchIn(BaseModel):
+    fixes: list[LocationFix] = Field(..., min_length=1, max_length=2000)
+
+
+@router.post("/location/batch", status_code=204)
+async def update_location_batch(
+    payload: LocationBatchIn,
+    driver: Driver = Depends(get_current_driver),
+    r: redis.Redis = Depends(get_redis_dep),
+):
+    """A backlog of positions the phone could not send at the time.
+
+    GPS keeps working without a data connection, so a coverage gap leaves the
+    driver holding fixes nobody has seen. Replaying them measures the road they
+    actually drove instead of a straight line across the gap.
+    """
+    await ride_service.relay_driver_location_batch(r, str(driver.id), payload.fixes)
+
+
 @router.post("/location", status_code=204)
 async def update_location(
     payload: LocationIn,
