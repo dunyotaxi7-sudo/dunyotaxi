@@ -38,6 +38,8 @@ export function Topbar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const toggleNav = useUI((s) => s.toggleNav);
+  const collapsed = useUI((s) => s.navCollapsed);
+  const toggleNavCollapsed = useUI((s) => s.toggleNavCollapsed);
 
   function handleLogout() {
     logout();
@@ -56,6 +58,17 @@ export function Topbar() {
           aria-label="Menyu"
         >
           <Icon name="menu" size={20} />
+        </button>
+        {/* Desktop: fold the sidebar to a rail. Pages that want the width —
+            the order map above all — get ~190px back. */}
+        <button
+          onClick={toggleNavCollapsed}
+          className="btn btn-ghost !px-2 hidden lg:inline-flex"
+          aria-label={collapsed ? "Menyuni ko‘rsatish" : "Menyuni yashirish"}
+          title={collapsed ? "Menyuni ko‘rsatish" : "Menyuni yashirish"}
+          aria-pressed={collapsed}
+        >
+          <Icon name="sidebar" size={20} />
         </button>
         <h1 className="text-[15px] sm:text-[17px] font-semibold tracking-tight truncate">
           {titleFor(pathname)}

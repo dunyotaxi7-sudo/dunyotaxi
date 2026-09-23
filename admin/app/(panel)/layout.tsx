@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { Topbar } from "@/components/Topbar";
 import { useAuth } from "@/lib/auth-store";
+import { useUI } from "@/lib/ui-store";
 
 export default function PanelLayout({
   children,
@@ -13,8 +14,12 @@ export default function PanelLayout({
 }) {
   const router = useRouter();
   const { user, hydrated, hydrate } = useAuth();
+  const hydrateUI = useUI((s) => s.hydrateUI);
 
   useEffect(() => hydrate(), [hydrate]);
+  // Read the remembered sidebar state in the same commit as the session, so
+  // the shell's first real paint is already in the operator's layout.
+  useEffect(() => hydrateUI(), [hydrateUI]);
   useEffect(() => {
     if (hydrated && !user) router.replace("/login");
   }, [hydrated, user, router]);

@@ -145,300 +145,309 @@ export default function OrdersPage() {
   const result = create.data;
 
   return (
-    // 1400px is where splitting actually pays: below it a 340px sidebar would
-    // leave the route column narrower than the 3xl form it replaced, so narrow
-    // screens keep today's single column and only the map grows.
-    <div className="max-w-3xl space-y-5 min-[1400px]:max-w-none">
-      {/* Two columns on a call-centre monitor: the route (and its map) gets the
-          width, dispatch options move into the space that used to sit empty to
-          the right of the form. `items-start` is what lets the sidebar stick —
-          it leaves the aside's grid area as tall as the left column. */}
-      <div className="grid items-start gap-5 min-[1400px]:grid-cols-[minmax(0,1fr)_340px]">
-        {/* Left column — who is calling and where they are going. */}
-        <div className="min-w-0 space-y-5">
-          {/* Passenger — pick an existing client */}
-          <section className="card p-5 space-y-3">
-            <h3 className="font-semibold">Yo‘lovchi</h3>
-            {selected ? (
-              <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
-                <div className="min-w-0 flex-1">
-                  {selected.id ? (
-                    <div className="text-sm font-medium">{selected.full_name}</div>
-                  ) : (
-                    // New caller: the name is optional, so offer it rather than
-                    // demand it. Left blank, the account gets the same placeholder
-                    // the app uses for an OTP signup that skipped it.
-                    <input
-                      className="input h-8 text-sm"
-                      value={selected.full_name}
-                      onChange={(e) =>
-                        setSelected({ ...selected, full_name: e.target.value })
-                      }
-                      placeholder="Ism (ixtiyoriy)"
-                    />
-                  )}
-                  <div className="text-xs text-muted mt-0.5">
-                    {formatPhone(selected.phone)}
-                    {selected.role === "driver" ? " · haydovchi" : ""}
-                    {selected.id ? "" : " · yangi mijoz"}
+    // Sized against the content area rather than the viewport, so folding the
+    // sidebar away is itself enough to earn the second column. Deliberately
+    // scoped here and not put on the shell: `container-type` also makes an
+    // element the containing block for fixed descendants, which would trap
+    // other pages' full-screen modals inside the content area.
+    <div className="@container">
+      <div className="max-w-3xl space-y-5 @min-[1150px]:max-w-none">
+        {/* Two columns on a call-centre monitor: the route (and its map) gets the
+            width, dispatch options move into the space that used to sit empty to
+            the right of the form. `items-start` is what lets the sidebar stick —
+            it leaves the aside's grid area as tall as the left column. */}
+        <div className="grid items-start gap-5 @min-[1150px]:grid-cols-[minmax(0,1fr)_340px]">
+          {/* Left column — who is calling and where they are going. */}
+          <div className="min-w-0 space-y-5">
+            {/* Passenger — pick an existing client */}
+            <section className="card p-5 space-y-3">
+              <h3 className="font-semibold">Yo‘lovchi</h3>
+              {selected ? (
+                <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    {selected.id ? (
+                      <div className="text-sm font-medium">{selected.full_name}</div>
+                    ) : (
+                      // New caller: the name is optional, so offer it rather than
+                      // demand it. Left blank, the account gets the same placeholder
+                      // the app uses for an OTP signup that skipped it.
+                      <input
+                        className="input h-8 text-sm"
+                        value={selected.full_name}
+                        onChange={(e) =>
+                          setSelected({ ...selected, full_name: e.target.value })
+                        }
+                        placeholder="Ism (ixtiyoriy)"
+                      />
+                    )}
+                    <div className="text-xs text-muted mt-0.5">
+                      {formatPhone(selected.phone)}
+                      {selected.role === "driver" ? " · haydovchi" : ""}
+                      {selected.id ? "" : " · yangi mijoz"}
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    className="btn btn-ghost text-xs"
+                    onClick={() => {
+                      setSelected(null);
+                      setClientSearch("");
+                    }}
+                  >
+                    O‘zgartirish
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className="btn btn-ghost text-xs"
-                  onClick={() => {
-                    setSelected(null);
-                    setClientSearch("");
-                  }}
-                >
-                  O‘zgartirish
-                </button>
-              </div>
-            ) : (
-              <div className="relative">
-                <input
-                  className="input"
-                  value={clientSearch}
-                  onChange={(e) => setClientSearch(e.target.value)}
-                  placeholder="Telefon yoki ism bo‘yicha qidiring…"
-                />
-                {debounced.length >= 2 && (
-                  <div className="absolute z-20 mt-1 w-full card p-1 max-h-64 overflow-auto shadow-[var(--shadow-md)]">
-                    {clientResults.isFetching ? (
-                      <div className="px-3 py-2 text-sm text-muted">Qidirilmoqda…</div>
-                    ) : clientResults.data && clientResults.data.length > 0 ? (
-                      clientResults.data.map((c) => (
+              ) : (
+                <div className="relative">
+                  <input
+                    className="input"
+                    value={clientSearch}
+                    onChange={(e) => setClientSearch(e.target.value)}
+                    placeholder="Telefon yoki ism bo‘yicha qidiring…"
+                  />
+                  {debounced.length >= 2 && (
+                    <div className="absolute z-20 mt-1 w-full card p-1 max-h-64 overflow-auto shadow-[var(--shadow-md)]">
+                      {clientResults.isFetching ? (
+                        <div className="px-3 py-2 text-sm text-muted">Qidirilmoqda…</div>
+                      ) : clientResults.data && clientResults.data.length > 0 ? (
+                        clientResults.data.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() =>
+                              setSelected({
+                                id: c.id,
+                                full_name: c.full_name,
+                                phone: c.phone,
+                                role: c.role,
+                              })
+                            }
+                            className="block w-full text-left px-3 py-2 rounded-md hover:bg-[var(--surface-2)]"
+                          >
+                            <div className="text-sm font-medium">{c.full_name}</div>
+                            <div className="text-xs text-muted">
+                              {formatPhone(c.phone)}
+                              {c.role === "driver" ? " · haydovchi" : ""}
+                              {c.is_blocked ? " · bloklangan" : ""}
+                            </div>
+                          </button>
+                        ))
+                      ) : newCallerPhone ? (
+                        // The common call-centre case: an unknown number. Pick it
+                        // here and the account is created with the order itself.
                         <button
-                          key={c.id}
                           type="button"
                           onClick={() =>
                             setSelected({
-                              id: c.id,
-                              full_name: c.full_name,
-                              phone: c.phone,
-                              role: c.role,
+                              id: null,
+                              full_name: "",
+                              phone: newCallerPhone,
+                              role: "passenger",
                             })
                           }
                           className="block w-full text-left px-3 py-2 rounded-md hover:bg-[var(--surface-2)]"
                         >
-                          <div className="text-sm font-medium">{c.full_name}</div>
+                          <div className="text-sm font-medium text-primary">
+                            + {formatPhone(newCallerPhone)} bilan yangi mijoz
+                          </div>
                           <div className="text-xs text-muted">
-                            {formatPhone(c.phone)}
-                            {c.role === "driver" ? " · haydovchi" : ""}
-                            {c.is_blocked ? " · bloklangan" : ""}
+                            Buyurtma bilan birga yaratiladi — ismni keyin qo‘shsa
+                            ham bo‘ladi
                           </div>
                         </button>
-                      ))
-                    ) : newCallerPhone ? (
-                      // The common call-centre case: an unknown number. Pick it
-                      // here and the account is created with the order itself.
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setSelected({
-                            id: null,
-                            full_name: "",
-                            phone: newCallerPhone,
-                            role: "passenger",
-                          })
-                        }
-                        className="block w-full text-left px-3 py-2 rounded-md hover:bg-[var(--surface-2)]"
-                      >
-                        <div className="text-sm font-medium text-primary">
-                          + {formatPhone(newCallerPhone)} bilan yangi mijoz
+                      ) : (
+                        <div className="px-3 py-2 text-sm text-muted">
+                          Mijoz topilmadi. Telefon raqamini to‘liq kiriting yoki{" "}
+                          <Link
+                            href="/passengers/new"
+                            className="text-primary hover:underline"
+                          >
+                            mijozlar sahifasida yarating
+                          </Link>
                         </div>
-                        <div className="text-xs text-muted">
-                          Buyurtma bilan birga yaratiladi — ismni keyin qo‘shsa
-                          ham bo‘ladi
-                        </div>
-                      </button>
-                    ) : (
-                      <div className="px-3 py-2 text-sm text-muted">
-                        Mijoz topilmadi. Telefon raqamini to‘liq kiriting yoki{" "}
-                        <Link
-                          href="/passengers/new"
-                          className="text-primary hover:underline"
-                        >
-                          mijozlar sahifasida yarating
-                        </Link>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </section>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
 
-          {/* Route */}
-          <section className="card p-5 space-y-3">
-            <h3 className="font-semibold">Manzillar</h3>
-            {/* Telefon orqali chaqirgan mijozdan joylashuvni so'rash. */}
-            <RequestLocationPrompt
-              key={selected?.id ?? "no-client"}
-              passengerId={selected?.id ?? null}
-              onLocation={setPickup}
-            />
-            {(recentPickups.data?.length ?? 0) > 0 && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-muted">Avvalgi manzillari:</span>
-                {recentPickups.data!.map((p) => (
+            {/* Route */}
+            <section className="card p-5 space-y-3">
+              <h3 className="font-semibold">Manzillar</h3>
+              {/* Telefon orqali chaqirgan mijozdan joylashuvni so'rash. */}
+              <RequestLocationPrompt
+                key={selected?.id ?? "no-client"}
+                passengerId={selected?.id ?? null}
+                onLocation={setPickup}
+              />
+              {(recentPickups.data?.length ?? 0) > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-muted">Avvalgi manzillari:</span>
+                  {recentPickups.data!.map((p) => (
+                    <button
+                      key={`${p.address}-${p.lat}-${p.lng}`}
+                      type="button"
+                      title={p.address}
+                      onClick={() =>
+                        setPickup({ lat: p.lat, lng: p.lng, address: p.address })
+                      }
+                      className="rounded-full border border-border px-3 py-1 text-xs hover:bg-[var(--surface-2)] max-w-[240px] truncate"
+                    >
+                      {p.address}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {!destination && pickup && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-800">
+                  Borish manzili tanlanmagan — <b>hisoblagichli buyurtma</b>. Narx
+                  oldindan aytilmaydi, sayohat oxirida bosib o‘tilgan masofa bo‘yicha
+                  hisoblanadi. Eslatma: haydovchilarning ilovasi yangilanmaguncha bu
+                  turdagi buyurtmalar server tomonidan qabul qilinmaydi.
+                </div>
+              )}
+
+              <OrderLocationPicker
+                pickup={pickup}
+                destination={destination}
+                onChange={(which, loc) =>
+                  which === "pickup" ? setPickup(loc) : setDestination(loc)
+                }
+                onClear={(which) =>
+                  which === "pickup" ? setPickup(null) : setDestination(null)
+                }
+              />
+            </section>
+          </div>
+
+          {/* Right column — how the order reaches a driver. Sticky (clearing the
+              64px topbar) so the mode stays visible while the operator works the
+              map, and so the confirmation lands where they are already looking. */}
+          <aside className="min-w-0 space-y-5 @min-[1150px]:sticky @min-[1150px]:top-20">
+            {/* Driver connection */}
+            <section className="card p-5 space-y-4">
+              <h3 className="font-semibold">Haydovchiga ulash</h3>
+              {/* Three across only while this card spans the full width; once it
+                  moves into the 340px sidebar they stack, because three cards
+                  that narrow are unreadable. */}
+              <div className="grid grid-cols-1 gap-3 sm:@max-[1149px]:grid-cols-3">
+                {MODES.map((m) => (
                   <button
-                    key={`${p.address}-${p.lat}-${p.lng}`}
+                    key={m.value}
                     type="button"
-                    title={p.address}
-                    onClick={() =>
-                      setPickup({ lat: p.lat, lng: p.lng, address: p.address })
-                    }
-                    className="rounded-full border border-border px-3 py-1 text-xs hover:bg-[var(--surface-2)] max-w-[240px] truncate"
+                    onClick={() => setMode(m.value)}
+                    className={`text-left rounded-lg border p-3 transition-colors ${
+                      mode === m.value
+                        ? "border-primary bg-[var(--primary-soft)]"
+                        : "border-border hover:bg-[var(--surface-2)]"
+                    }`}
                   >
-                    {p.address}
+                    <div className="text-sm font-semibold">{m.label}</div>
+                    <div className="text-xs text-muted mt-1">{m.hint}</div>
                   </button>
                 ))}
               </div>
-            )}
 
-            {!destination && pickup && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-800">
-                Borish manzili tanlanmagan — <b>hisoblagichli buyurtma</b>. Narx
-                oldindan aytilmaydi, sayohat oxirida bosib o‘tilgan masofa bo‘yicha
-                hisoblanadi. Eslatma: haydovchilarning ilovasi yangilanmaguncha bu
-                turdagi buyurtmalar server tomonidan qabul qilinmaydi.
+              {mode !== "auto" && (
+                <div>
+                  <label className="label">Haydovchi</label>
+                  <DriverPicker
+                    drivers={driverOptions}
+                    value={driverId}
+                    onChange={setDriverId}
+                    loading={drivers.isLoading}
+                    classLabel={classLabel}
+                  />
+                  {mode === "offer" && (
+                    <p className="text-xs text-muted mt-1">
+                      Faqat onlayn haydovchi taklifni oladi.
+                    </p>
+                  )}
+                </div>
+              )}
+            </section>
+
+            {/* Result — in the sidebar, next to the mode that produced it, so the
+                operator confirms the order without leaving the form. */}
+            {result && (
+              <div className="card p-5 border-green-200 bg-green-50/50 space-y-1">
+                <div className="text-sm font-semibold text-green-700">
+                  Buyurtma yaratildi ✓
+                </div>
+                <div className="text-sm text-foreground/80">
+                  Holat: <b>{rideStatusLabel[result.status] ?? result.status}</b> ·{" "}
+                  {result.fare_mode === "meter" ? (
+                    <>
+                      Narx: <b>hisoblagich bo‘yicha</b> (sayohat oxirida)
+                    </>
+                  ) : (
+                    <>
+                      Narx: <b>{formatSom(result.price_sum)}</b>
+                    </>
+                  )}
+                </div>
+                <div className="text-sm text-foreground/80">
+                  Yo‘lovchi: {result.passenger_name} ({result.passenger_phone})
+                </div>
+                <div className="text-xs text-muted">Sayohat ID: {result.ride_id}</div>
               </div>
             )}
-
-            <OrderLocationPicker
-              pickup={pickup}
-              destination={destination}
-              onChange={(which, loc) =>
-                which === "pickup" ? setPickup(loc) : setDestination(loc)
-              }
-              onClear={(which) =>
-                which === "pickup" ? setPickup(null) : setDestination(null)
-              }
-            />
-          </section>
+          </aside>
         </div>
 
-        {/* Right column — how the order reaches a driver. Sticky (clearing the
-            64px topbar) so the mode stays visible while the operator works the
-            map, and so the confirmation lands where they are already looking. */}
-        <aside className="min-w-0 space-y-5 min-[1400px]:sticky min-[1400px]:top-20">
-          {/* Driver connection */}
-          <section className="card p-5 space-y-4">
-            <h3 className="font-semibold">Haydovchiga ulash</h3>
-            {/* Three across only while this card spans the full width; once it
-                moves into the 340px sidebar they stack, because three cards
-                that narrow are unreadable. */}
-            <div className="grid grid-cols-1 gap-3 sm:max-[1399px]:grid-cols-3">
-              {MODES.map((m) => (
-                <button
-                  key={m.value}
-                  type="button"
-                  onClick={() => setMode(m.value)}
-                  className={`text-left rounded-lg border p-3 transition-colors ${
-                    mode === m.value
-                      ? "border-primary bg-[var(--primary-soft)]"
-                      : "border-border hover:bg-[var(--surface-2)]"
-                  }`}
-                >
-                  <div className="text-sm font-semibold">{m.label}</div>
-                  <div className="text-xs text-muted mt-1">{m.hint}</div>
-                </button>
-              ))}
-            </div>
-
-            {mode !== "auto" && (
-              <div>
-                <label className="label">Haydovchi</label>
-                <DriverPicker
-                  drivers={driverOptions}
-                  value={driverId}
-                  onChange={setDriverId}
-                  loading={drivers.isLoading}
-                  classLabel={classLabel}
-                />
-                {mode === "offer" && (
-                  <p className="text-xs text-muted mt-1">
-                    Faqat onlayn haydovchi taklifni oladi.
-                  </p>
-                )}
-              </div>
-            )}
-          </section>
-
-          {/* Result — in the sidebar, next to the mode that produced it, so the
-              operator confirms the order without leaving the form. */}
-          {result && (
-            <div className="card p-5 border-green-200 bg-green-50/50 space-y-1">
-              <div className="text-sm font-semibold text-green-700">
-                Buyurtma yaratildi ✓
-              </div>
-              <div className="text-sm text-foreground/80">
-                Holat: <b>{rideStatusLabel[result.status] ?? result.status}</b> ·{" "}
-                {result.fare_mode === "meter" ? (
-                  <>
-                    Narx: <b>hisoblagich bo‘yicha</b> (sayohat oxirida)
-                  </>
-                ) : (
-                  <>
-                    Narx: <b>{formatSom(result.price_sum)}</b>
-                  </>
-                )}
-              </div>
-              <div className="text-sm text-foreground/80">
-                Yo‘lovchi: {result.passenger_name} ({result.passenger_phone})
-              </div>
-              <div className="text-xs text-muted">Sayohat ID: {result.ride_id}</div>
-            </div>
-          )}
-        </aside>
-      </div>
-
-      {(formError || create.isError) && (
-        <div className="space-y-3">
-          {formError && <ErrorBlock message={formError} />}
-          {create.isError && <ErrorBlock message={apiError(create.error)} />}
-        </div>
-      )}
-
-      {/* Sticky, so the operator never scrolls back down to send while the
-          caller waits — and so the order's state is readable at a glance. */}
-      <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center gap-3 border-t border-border bg-[var(--surface)]/95 px-1 py-3 backdrop-blur">
-        <button
-          className="btn btn-primary"
-          onClick={submit}
-          disabled={create.isPending}
-        >
-          {create.isPending ? "Yuborilmoqda…" : "Buyurtma yaratish"}
-        </button>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
-          <Chip ok={Boolean(selected)}>
-            {selected ? selected.full_name || formatPhone(selected.phone) : "Mijoz"}
-          </Chip>
-          <Chip ok={Boolean(pickup)}>
-            {pickup ? "Qayerdan ✓" : "Qayerdan"}
-          </Chip>
-          <Chip ok neutral={!destination}>
-            {destination ? "Qayerga ✓" : "Hisoblagich"}
-          </Chip>
-          <Chip ok>{MODES.find((m) => m.value === mode)?.label}</Chip>
-        </div>
-        {result && (
-          <button
-            className="btn btn-ghost"
-            onClick={() => {
-              create.reset();
-              setPickup(null);
-              setDestination(null);
-              setDriverId("");
-              setSelected(null);
-              setClientSearch("");
-            }}
-          >
-            Yangi buyurtma
-          </button>
+        {(formError || create.isError) && (
+          <div className="space-y-3">
+            {formError && <ErrorBlock message={formError} />}
+            {create.isError && <ErrorBlock message={apiError(create.error)} />}
+          </div>
         )}
-      </div>
+
+        {/* Sticky, so the operator never scrolls back down to send while the
+            caller waits — and so the order's state is readable at a glance. */}
+        <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center gap-3 border-t border-border bg-[var(--surface)]/95 px-1 py-3 backdrop-blur">
+          {/* Checklist on the left, action on the right: the operator reads what
+              the order has, then commits — and the button lands under the
+              dispatch sidebar rather than out on the far left. */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+            <Chip ok={Boolean(selected)}>
+              {selected ? selected.full_name || formatPhone(selected.phone) : "Mijoz"}
+            </Chip>
+            <Chip ok={Boolean(pickup)}>
+              {pickup ? "Qayerdan ✓" : "Qayerdan"}
+            </Chip>
+            <Chip ok neutral={!destination}>
+              {destination ? "Qayerga ✓" : "Hisoblagich"}
+            </Chip>
+            <Chip ok>{MODES.find((m) => m.value === mode)?.label}</Chip>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            {result && (
+              <button
+                className="btn btn-ghost"
+                onClick={() => {
+                  create.reset();
+                  setPickup(null);
+                  setDestination(null);
+                  setDriverId("");
+                  setSelected(null);
+                  setClientSearch("");
+                }}
+              >
+                Yangi buyurtma
+              </button>
+            )}
+            <button
+              className="btn btn-primary"
+              onClick={submit}
+              disabled={create.isPending}
+            >
+              {create.isPending ? "Yuborilmoqda…" : "Buyurtma yaratish"}
+            </button>
+          </div>
+        </div>
+    </div>
     </div>
   );
 }

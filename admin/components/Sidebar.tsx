@@ -40,6 +40,11 @@ export function Sidebar() {
   const isAdmin = user?.role === "admin";
   const navOpen = useUI((s) => s.navOpen);
   const closeNav = useUI((s) => s.closeNav);
+  // Collapsed is a desktop-only idea: the drawer that slides over a phone is
+  // already hidden by default, and a rail inside it would just be smaller.
+  // Hence every collapse class below is lg-only, and the drawer keeps labels.
+  const collapsed = useUI((s) => s.navCollapsed);
+  const hide = collapsed ? "lg:hidden" : "";
 
   // Navigating on a phone should dismiss the drawer.
   useEffect(() => closeNav(), [pathname, closeNav]);
@@ -77,14 +82,19 @@ export function Sidebar() {
         className={`w-64 shrink-0 border-r border-border bg-surface flex flex-col
           fixed inset-y-0 left-0 z-40 transition-transform duration-200
           lg:static lg:h-screen lg:sticky lg:top-0 lg:translate-x-0
+          lg:transition-[width] ${collapsed ? "lg:w-[68px]" : "lg:w-64"}
           ${navOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
       {/* Brand */}
-      <div className="h-16 flex items-center gap-2.5 px-5 border-b border-border">
-        <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-sm">
+      <div
+        className={`h-16 flex items-center gap-2.5 px-5 border-b border-border ${
+          collapsed ? "lg:justify-center lg:px-0" : ""
+        }`}
+      >
+        <div className="h-8 w-8 shrink-0 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-sm">
           B
         </div>
-        <div className="leading-tight">
+        <div className={`leading-tight ${hide}`}>
           <div className="font-semibold text-[15px]">Dunyo Taxi</div>
           <div className="text-[11px] text-muted">Boshqaruv paneli</div>
         </div>
@@ -102,7 +112,12 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
+              // The label is the only thing naming a rail icon, so keep it as
+              // the tooltip once it is hidden.
+              title={collapsed ? item.label : undefined}
               className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                collapsed ? "lg:justify-center lg:px-0" : ""
+              } ${
                 active
                   ? "bg-[var(--primary-soft)] text-primary"
                   : "text-[color:var(--foreground)]/75 hover:bg-[var(--surface-2)] hover:text-foreground"
@@ -110,15 +125,17 @@ export function Sidebar() {
             >
               <Icon
                 name={item.icon}
-                className={active ? "text-primary" : "text-muted group-hover:text-foreground"}
+                className={`shrink-0 ${active ? "text-primary" : "text-muted group-hover:text-foreground"}`}
               />
-              {item.label}
+              <span className={hide}>{item.label}</span>
             </Link>
           );
         })}
       </nav>
 
-      <div className="px-5 py-3 text-[11px] text-muted border-t border-border">
+      <div
+        className={`px-5 py-3 text-[11px] text-muted border-t border-border ${hide}`}
+      >
         v1.0 · Buxoro viloyati
       </div>
       </aside>
