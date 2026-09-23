@@ -144,6 +144,50 @@ export default function OrdersPage() {
 
   const result = create.data;
 
+  function resetOrder() {
+    create.reset();
+    setPickup(null);
+    setDestination(null);
+    setDriverId("");
+    setSelected(null);
+    setClientSearch("");
+  }
+
+  // The action block has two homes — the sidebar when there is one, the sticky
+  // bar when the form is a single column — so its parts are written once here.
+  const checklist = (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+      <Chip ok={Boolean(selected)}>
+        {selected ? selected.full_name || formatPhone(selected.phone) : "Mijoz"}
+      </Chip>
+      <Chip ok={Boolean(pickup)}>{pickup ? "Qayerdan ✓" : "Qayerdan"}</Chip>
+      <Chip ok neutral={!destination}>
+        {destination ? "Qayerga ✓" : "Hisoblagich"}
+      </Chip>
+      <Chip ok>{MODES.find((m) => m.value === mode)?.label}</Chip>
+    </div>
+  );
+
+  const errors = formError || create.isError ? (
+    <div className="space-y-2">
+      {formError && <ErrorBlock message={formError} />}
+      {create.isError && <ErrorBlock message={apiError(create.error)} />}
+    </div>
+  ) : null;
+
+  const submitButton = (className: string) => (
+    <button className={`btn btn-primary ${className}`} onClick={submit} disabled={create.isPending}>
+      {create.isPending ? "Yuborilmoqda…" : "Buyurtma yaratish"}
+    </button>
+  );
+
+  const resetButton = (className: string) =>
+    result ? (
+      <button className={`btn btn-ghost ${className}`} onClick={resetOrder}>
+        Yangi buyurtma
+      </button>
+    ) : null;
+
   return (
     // Sized against the content area rather than the viewport, so folding the
     // sidebar away is itself enough to earn the second column. Deliberately
@@ -369,6 +413,16 @@ export default function OrdersPage() {
               )}
             </section>
 
+            {/* Sending the order belongs with the decision about who gets it,
+                so on a two-column screen the button sits under the modes —
+                the sticky bar below is for the single-column layout only. */}
+            <section className="card hidden p-5 @min-[1150px]:block space-y-3">
+              {errors}
+              {checklist}
+              {submitButton("w-full")}
+              {resetButton("w-full")}
+            </section>
+
             {/* Result — in the sidebar, next to the mode that produced it, so the
                 operator confirms the order without leaving the form. */}
             {result && (
@@ -397,57 +451,20 @@ export default function OrdersPage() {
           </aside>
         </div>
 
-        {(formError || create.isError) && (
-          <div className="space-y-3">
-            {formError && <ErrorBlock message={formError} />}
-            {create.isError && <ErrorBlock message={apiError(create.error)} />}
-          </div>
-        )}
-
-        {/* Sticky, so the operator never scrolls back down to send while the
-            caller waits — and so the order's state is readable at a glance. */}
-        <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center gap-3 border-t border-border bg-[var(--surface)]/95 px-1 py-3 backdrop-blur">
-          {/* Checklist on the left, action on the right: the operator reads what
-              the order has, then commits — and the button lands under the
-              dispatch sidebar rather than out on the far left. */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
-            <Chip ok={Boolean(selected)}>
-              {selected ? selected.full_name || formatPhone(selected.phone) : "Mijoz"}
-            </Chip>
-            <Chip ok={Boolean(pickup)}>
-              {pickup ? "Qayerdan ✓" : "Qayerdan"}
-            </Chip>
-            <Chip ok neutral={!destination}>
-              {destination ? "Qayerga ✓" : "Hisoblagich"}
-            </Chip>
-            <Chip ok>{MODES.find((m) => m.value === mode)?.label}</Chip>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            {result && (
-              <button
-                className="btn btn-ghost"
-                onClick={() => {
-                  create.reset();
-                  setPickup(null);
-                  setDestination(null);
-                  setDriverId("");
-                  setSelected(null);
-                  setClientSearch("");
-                }}
-              >
-                Yangi buyurtma
-              </button>
-            )}
-            <button
-              className="btn btn-primary"
-              onClick={submit}
-              disabled={create.isPending}
-            >
-              {create.isPending ? "Yuborilmoqda…" : "Buyurtma yaratish"}
-            </button>
+        {/* One column: no sidebar to hold the action, so it stays a sticky
+            bar — the operator never scrolls back down to send while the caller
+            waits, and the order's state stays readable at a glance. */}
+        <div className="@min-[1150px]:hidden space-y-3">
+          {errors}
+          <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center gap-3 border-t border-border bg-[var(--surface)]/95 px-1 py-3 backdrop-blur">
+            {checklist}
+            <div className="ml-auto flex items-center gap-2">
+              {resetButton("")}
+              {submitButton("")}
+            </div>
           </div>
         </div>
-    </div>
+      </div>
     </div>
   );
 }
