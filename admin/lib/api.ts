@@ -26,6 +26,7 @@ import type {
   OnlineDriver,
   PassengerDetail,
   PassengerRow,
+  Place,
   UpdatePassengerInput,
   CarModelAdmin,
   CarTypeAdmin,
@@ -258,6 +259,26 @@ export const serviceAreaApi = {
 };
 
 // ── Live map ──────────────────────────────────────────────────────────
+// ── Saved places ──────────────────────────────────────────────────────
+export const placesApi = {
+  list: (q?: string, includeInactive = false) =>
+    api
+      .get<Place[]>("/admin/places", {
+        params: {
+          ...(q ? { q } : {}),
+          ...(includeInactive ? { include_inactive: true } : {}),
+        },
+      })
+      .then((r) => r.data),
+  create: (body: { name: string; lat: number; lng: number; address?: string | null }) =>
+    api.post<Place>("/admin/places", body).then((r) => r.data),
+  update: (
+    id: string,
+    body: Partial<{ name: string; lat: number; lng: number; address: string | null; is_active: boolean }>,
+  ) => api.patch<Place>(`/admin/places/${id}`, body).then((r) => r.data),
+  remove: (id: string) => api.delete(`/admin/places/${id}`).then(() => undefined),
+};
+
 export const mapApi = {
   onlineDrivers: () =>
     api

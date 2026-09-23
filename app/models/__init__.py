@@ -20,7 +20,7 @@ from app.models.bonus import (
     PromoCode,
     PromoUsage,
 )
-from app.models.system import Notification, AdminAuditLog, ServiceArea
+from app.models.system import Notification, AdminAuditLog, Place, ServiceArea
 
 __all__ = [
     "User",
@@ -36,6 +36,7 @@ __all__ = [
     "DriverCommission",
     "Wallet",
     "WalletTransaction",
+    "Place",
     "BonusCampaign",
     "BonusAchievement",
     "PromoCode",

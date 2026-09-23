@@ -471,6 +471,35 @@ class OrderLocation(BaseModel):
     address: str = Field(..., max_length=200)
 
 
+class PlaceCreate(BaseModel):
+    """A landmark saved under the name callers actually use for it."""
+
+    name: str = Field(..., min_length=2, max_length=120)
+    lat: float = Field(..., ge=-90, le=90)
+    lng: float = Field(..., ge=-180, le=180)
+    # Filled by the reverse geocoder when the operator drops the pin. Shown to
+    # the operator to tell similar names apart; the driver sees the name.
+    address: str | None = Field(default=None, max_length=200)
+
+
+class PlaceUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=120)
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
+    address: str | None = Field(default=None, max_length=200)
+    is_active: bool | None = None
+
+
+class PlacePublic(BaseModel):
+    id: uuid.UUID
+    name: str
+    address: str | None = None
+    lat: float
+    lng: float
+    is_active: bool
+    created_at: datetime | None = None
+
+
 class RecentPickup(BaseModel):
     """A place this client has been collected from before."""
 

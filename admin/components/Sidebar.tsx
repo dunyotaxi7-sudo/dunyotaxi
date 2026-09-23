@@ -24,6 +24,7 @@ const NAV: NavItem[] = [
   { href: "/live", label: "Jonli buyurtmalar", icon: "live" },
   { href: "/dispatch", label: "Buyurtmalar", icon: "orders" },
   { href: "/map", label: "Jonli xarita", icon: "map" },
+  { href: "/places", label: "Saqlangan joylar", icon: "pin" },
   { href: "/rides", label: "Sayohatlar", icon: "rides" },
   { href: "/pricing", label: "Narxlar", icon: "pricing", requires: "finance" },
   { href: "/commission", label: "Komissiya", icon: "commission", requires: "finance" },

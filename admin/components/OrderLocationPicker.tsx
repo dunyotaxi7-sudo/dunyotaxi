@@ -6,7 +6,7 @@
 //
 // The map needs NEXT_PUBLIC_YANDEX_MAPS_KEY. Without it we degrade to a
 // coordinates panel — search still works, only the tiles are missing.
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BUKHARA,
@@ -23,8 +23,9 @@ import {
   type YMapInstance,
   type YMaps3,
 } from "@/lib/yandex";
-import { mapApi } from "@/lib/api";
-import type { OnlineDriver } from "@/lib/types";
+import { mapApi, placesApi } from "@/lib/api";
+import { apiError } from "@/lib/axios";
+import type { OnlineDriver, Place } from "@/lib/types";
 
 export type Loc = { lat: number; lng: number; address: string };
 type Which = "pickup" | "destination";
@@ -44,12 +45,19 @@ export function OrderLocationPicker({
   destination,
   onChange,
   onClear,
+  single,
+  pickupLabel,
 }: {
   pickup: Loc | null;
   destination: Loc | null;
   onChange: (which: Which, loc: Loc) => void;
   /** Clearing the destination is how an operator turns this into a metered order. */
   onClear?: (which: Which) => void;
+  /** One point, no destination: used where a single place is being pinned.
+      Also drops what only makes sense while taking an order — the live driver
+      pins, and the offer to save the point, which would be circular there. */
+  single?: boolean;
+  pickupLabel?: string;
 }) {
   const [active, setActive] = useState<Which>("pickup");
   // Most orders are typed, not clicked, so the map can be folded away to give
@@ -72,7 +80,7 @@ export function OrderLocationPicker({
     queryKey: ["map-online-drivers"],
     queryFn: () => mapApi.onlineDrivers(),
     refetchInterval: 10000,
-    enabled: mapOpen,
+    enabled: mapOpen && !single,
   });
 
   const handleMapClick = useCallback(async (lat: number, lng: number) => {
@@ -87,48 +95,61 @@ export function OrderLocationPicker({
   return (
     <div className="space-y-3">
       <SearchField
-        label="Qayerdan (olib ketish)"
+        label={pickupLabel ?? "Qayerdan (olib ketish)"}
         dotColor={PICKUP_COLOR}
         marker="A"
         value={pickup}
+        savedPlaces={!single}
+        offerToSave={!single}
         onPick={(loc) => onChange("pickup", loc)}
         onFocusActive={() => setActive("pickup")}
         onClear={() => onClear?.("pickup")}
       />
-      <SearchField
-        label="Qayerga (manzil)"
-        dotColor={DEST_COLOR}
-        marker="B"
-        value={destination}
-        optional
-        onPick={(loc) => onChange("destination", loc)}
-        onFocusActive={() => setActive("destination")}
-        onClear={() => onClear?.("destination")}
-      />
+      {!single && (
+        <SearchField
+          label="Qayerga (manzil)"
+          dotColor={DEST_COLOR}
+          marker="B"
+          value={destination}
+          optional
+          savedPlaces
+          offerToSave
+          onPick={(loc) => onChange("destination", loc)}
+          onFocusActive={() => setActive("destination")}
+          onClear={() => onClear?.("destination")}
+        />
+      )}
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
         {/* Which point a map click sets. Previously two small ghost buttons
             that were easy to overlook, so clicks landed on the wrong point. */}
-        <div className="inline-flex rounded-lg border border-border p-0.5 bg-[var(--surface-2)]">
-          {(["pickup", "destination"] as Which[]).map((w) => (
-            <button
-              key={w}
-              type="button"
-              onClick={() => setActive(w)}
-              className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
-                active === w
-                  ? "bg-[var(--surface)] font-medium shadow-[var(--shadow-sm)]"
-                  : "text-muted hover:text-foreground"
-              }`}
-            >
-              <span
-                className="inline-block h-2.5 w-2.5 rounded-full"
-                style={{ background: w === "pickup" ? PICKUP_COLOR : DEST_COLOR }}
-              />
-              {w === "pickup" ? "Qayerdan" : "Qayerga"}
-            </button>
-          ))}
-        </div>
+        {/* Left out rather than hidden with a class: `hidden` and `inline-flex`
+            are both display utilities, and which one wins is decided by
+            Tailwind's ordering, not by the order written here. */}
+        {single ? (
+          <span />
+        ) : (
+          <div className="inline-flex rounded-lg border border-border p-0.5 bg-[var(--surface-2)]">
+            {(["pickup", "destination"] as Which[]).map((w) => (
+              <button
+                key={w}
+                type="button"
+                onClick={() => setActive(w)}
+                className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
+                  active === w
+                    ? "bg-[var(--surface)] font-medium shadow-[var(--shadow-sm)]"
+                    : "text-muted hover:text-foreground"
+                }`}
+              >
+                <span
+                  className="inline-block h-2.5 w-2.5 rounded-full"
+                  style={{ background: w === "pickup" ? PICKUP_COLOR : DEST_COLOR }}
+                />
+                {w === "pickup" ? "Qayerdan" : "Qayerga"}
+              </button>
+            ))}
+          </div>
+        )}
         <button
           type="button"
           onClick={() => setMapOpen((v) => !v)}
@@ -142,19 +163,29 @@ export function OrderLocationPicker({
         <>
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
             <span>
-              Xaritada bosish{" "}
-              <b>{active === "pickup" ? "Qayerdan" : "Qayerga"}</b> nuqtasini
-              o‘rnatadi.
+              {single ? (
+                <>
+                  Xaritada bosib nuqtani belgilang.
+                </>
+              ) : (
+                <>
+                  Xaritada bosish{" "}
+                  <b>{active === "pickup" ? "Qayerdan" : "Qayerga"}</b> nuqtasini
+                  o‘rnatadi.
+                </>
+              )}
             </span>
             {/* Without this the pins are two shades of "a car is here". */}
-            <span className="flex items-center gap-3">
-              <Legend color="#16a34a">
-                Bo‘sh ({drivers.data?.filter((d) => !d.busy).length ?? 0})
-              </Legend>
-              <Legend color="#f59e0b">
-                Band ({drivers.data?.filter((d) => d.busy).length ?? 0})
-              </Legend>
-            </span>
+            {!single && (
+              <span className="flex items-center gap-3">
+                <Legend color="#16a34a">
+                  Bo‘sh ({drivers.data?.filter((d) => !d.busy).length ?? 0})
+                </Legend>
+                <Legend color="#f59e0b">
+                  Band ({drivers.data?.filter((d) => d.busy).length ?? 0})
+                </Legend>
+              </span>
+            )}
           </div>
           {YANDEX_MAPS_KEY ? (
             <YandexMap
@@ -424,6 +455,8 @@ function SearchField({
   marker,
   value,
   optional,
+  savedPlaces: withSavedPlaces,
+  offerToSave,
   onPick,
   onFocusActive,
   onClear,
@@ -434,6 +467,10 @@ function SearchField({
   marker: "A" | "B";
   value: Loc | null;
   optional?: boolean;
+  /** Offer saved landmarks alongside the geocoder's suggestions. */
+  savedPlaces?: boolean;
+  /** Offer to save whatever point this field holds as a new landmark. */
+  offerToSave?: boolean;
   onPick: (loc: Loc) => void;
   onFocusActive: () => void;
   onClear?: () => void;
@@ -461,6 +498,28 @@ function SearchField({
       if (timer.current) clearTimeout(timer.current);
     };
   }, [query, editing]);
+
+  // Saved places share the address box rather than getting one of their own:
+  // the operator types what the caller said and the landmark comes up first,
+  // without having to know in advance whether it was ever saved. With the box
+  // empty they are listed on their own — that is what makes them discoverable.
+  const places = useQuery({
+    queryKey: ["places", "picker", query.trim().length >= 2 ? query.trim() : ""],
+    queryFn: () => placesApi.list(query.trim().length >= 2 ? query.trim() : undefined),
+    enabled: editing && Boolean(withSavedPlaces),
+    staleTime: 60_000,
+  });
+  const savedPlaces = withSavedPlaces
+    ? (places.data ?? []).slice(0, query.trim().length >= 2 ? 6 : 5)
+    : [];
+
+  function pickPlace(p: Place) {
+    setPreds([]);
+    setEditing(false);
+    // The name, not the street: it is what the caller said and what the driver
+    // is shown. The street stays in the place record for telling names apart.
+    onPick({ lat: p.lat, lng: p.lng, address: p.name });
+  }
 
   async function pick(s: Suggestion) {
     setPreds([]);
@@ -524,8 +583,30 @@ function SearchField({
           Yandex qidiruv kalitlari sozlanmagan — faqat xaritada bosish ishlaydi.
         </div>
       )}
-      {editing && preds.length > 0 && (
-        <div className="absolute z-20 mt-1 w-full card p-1 max-h-64 overflow-auto shadow-[var(--shadow-md)]">
+      {editing && (savedPlaces.length > 0 || preds.length > 0) && (
+        <div className="absolute z-20 mt-1 w-full card p-1 max-h-72 overflow-auto shadow-[var(--shadow-md)]">
+          {savedPlaces.length > 0 && (
+            <>
+              <div className="px-3 pt-1.5 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted">
+                Saqlangan joylar
+              </div>
+              {savedPlaces.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => pickPlace(p)}
+                  className="block w-full text-left px-3 py-2 rounded-md hover:bg-[var(--surface-2)]"
+                >
+                  <div className="text-sm font-medium">★ {p.name}</div>
+                  {p.address && (
+                    <div className="text-xs text-muted">{p.address}</div>
+                  )}
+                </button>
+              ))}
+              {preds.length > 0 && <div className="my-1 border-t border-border" />}
+            </>
+          )}
           {preds.map((p, i) => (
             <button
               key={`${p.id}-${i}`}
@@ -539,6 +620,107 @@ function SearchField({
             </button>
           ))}
         </div>
+      )}
+      {/* Keyed on the point: moving the pin is a new question, so the name
+          being typed and the last confirmation reset with it. */}
+      {offerToSave && (
+        <SavePlaceRow
+          key={value ? `${value.lat},${value.lng}` : "none"}
+          value={value}
+        />
+      )}
+    </div>
+  );
+}
+
+
+// ── Saving a point as a place ────────────────────────────────────────
+
+/** Turn the point in a field into a saved place, without leaving the call.
+
+    A landmark is usually discovered mid-order — the caller names somewhere the
+    search did not know, and the operator finds it on the map. Sending them to
+    another page to record that means it never gets recorded, so the offer is
+    made right where the point already is. */
+function SavePlaceRow({ value }: { value: Loc | null }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [saved, setSaved] = useState<string | null>(null);
+
+  const save = useMutation({
+    mutationFn: () =>
+      placesApi.create({
+        name: name.trim(),
+        lat: value!.lat,
+        lng: value!.lng,
+        address: value!.address,
+      }),
+    onSuccess: (place) => {
+      void qc.invalidateQueries({ queryKey: ["places"] });
+      setOpen(false);
+      setSaved(place.name);
+    },
+  });
+
+  if (!value) return null;
+
+  if (saved) {
+    return (
+      <div className="mt-1 text-xs text-green-700">
+        ★ {saved} saqlangan joylarga qo‘shildi
+      </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setName(value.address ?? "");
+          save.reset();
+          setOpen(true);
+        }}
+        className="mt-1 text-xs text-primary hover:underline"
+      >
+        + Bu nuqtani saqlangan joy sifatida saqlash
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-1.5 space-y-1">
+      <div className="flex items-center gap-2">
+        <input
+          className="input h-8 text-sm"
+          value={name}
+          autoFocus
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Joy nomi — mijoz aytgandek"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && name.trim().length >= 2) save.mutate();
+            if (e.key === "Escape") setOpen(false);
+          }}
+        />
+        <button
+          type="button"
+          className="btn btn-primary !py-1.5 text-xs"
+          disabled={name.trim().length < 2 || save.isPending}
+          onClick={() => save.mutate()}
+        >
+          {save.isPending ? "…" : "Saqlash"}
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost !py-1.5 text-xs"
+          onClick={() => setOpen(false)}
+        >
+          Bekor
+        </button>
+      </div>
+      {save.isError && (
+        <div className="text-xs text-red-600">{apiError(save.error)}</div>
       )}
     </div>
   );

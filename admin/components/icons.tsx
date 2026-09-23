@@ -16,6 +16,7 @@ export type IconName =
   | "audit"
   | "logout"
   | "menu"
+  | "pin"
   | "sidebar"
   | "close";
 
@@ -122,6 +123,12 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <line x1="4" x2="20" y1="6" y2="6" />
       <line x1="4" x2="20" y1="12" y2="12" />
       <line x1="4" x2="20" y1="18" y2="18" />
+    </>
+  ),
+  pin: (
+    <>
+      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+      <circle cx="12" cy="10" r="3" />
     </>
   ),
   sidebar: (

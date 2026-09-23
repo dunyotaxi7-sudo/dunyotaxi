@@ -55,6 +55,9 @@ from app.schemas.admin import (
     AdminOrderOut,
     AdminPassengerCreate,
     AuditLogPublic,
+    PlaceCreate,
+    PlacePublic,
+    PlaceUpdate,
     DriverBalanceOut,
     DriverBalanceUpdate,
     DriverTxRow,
@@ -646,6 +649,77 @@ async def assign_ride(
 
 
 # ── Live map ──────────────────────────────────────────────────────────
+
+
+# ── Saved places ──────────────────────────────────────────────────────
+#
+# Any staff member may manage these: the people who hear a landmark named for
+# the first time are the ones taking the calls, and a list only an admin can
+# extend is a list that stays out of date. Every change is audited like the
+# rest of the panel.
+
+
+@router.get("/places", response_model=list[PlacePublic])
+async def list_places(
+    q: str | None = None,
+    include_inactive: bool = False,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+):
+    return await admin_service.list_places(
+        db, q, active_only=not include_inactive, limit=min(limit, 200)
+    )
+
+
+@router.post("/places", response_model=PlacePublic, status_code=201)
+async def create_place(
+    payload: PlaceCreate,
+    request: Request,
+    staff: User = Depends(require_staff),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        return await admin_service.create_place(
+            db, staff.id, name=payload.name, lat=payload.lat, lng=payload.lng,
+            address=payload.address, ip=client_ip(request),
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc))
+
+
+@router.patch("/places/{place_id}", response_model=PlacePublic)
+async def update_place(
+    place_id: uuid.UUID,
+    payload: PlaceUpdate,
+    request: Request,
+    staff: User = Depends(require_staff),
+    db: AsyncSession = Depends(get_db),
+):
+    changes = payload.model_dump(exclude_unset=True)
+    if not changes:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "nothing to update")
+    try:
+        place = await admin_service.update_place(
+            db, staff.id, place_id, changes=changes, ip=client_ip(request)
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc))
+    if place is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "place not found")
+    return place
+
+
+@router.delete("/places/{place_id}", status_code=204)
+async def delete_place(
+    place_id: uuid.UUID,
+    request: Request,
+    staff: User = Depends(require_staff),
+    db: AsyncSession = Depends(get_db),
+):
+    if not await admin_service.delete_place(
+        db, staff.id, place_id, ip=client_ip(request)
+    ):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "place not found")
 
 
 @router.get("/map/online-drivers", response_model=list[OnlineDriver])

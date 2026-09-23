@@ -27,6 +27,7 @@ from app.models import (
     DriverDocument,
     Notification,
     Payment,
+    Place,
     PromoUsage,
     Rating,
     Ride,
@@ -34,6 +35,7 @@ from app.models import (
     Wallet,
     WalletTransaction,
 )
+from app.services.geo import point_wkt
 from app.services import auth as auth_service
 from app.services import driver as driver_service
 from app.services import location
@@ -1286,3 +1288,172 @@ async def delete_driver(
     )
     await db.commit()
     return snapshot
+
+
+# ── Saved places ──────────────────────────────────────────────────────
+
+
+def _place_row(place: Place, lat: float, lng: float) -> dict:
+    return {
+        "id": place.id,
+        "name": place.name,
+        "address": place.address,
+        "lat": lat,
+        "lng": lng,
+        "is_active": place.is_active,
+        "created_at": place.created_at,
+    }
+
+
+async def list_places(
+    db: AsyncSession,
+    q: str | None = None,
+    *,
+    active_only: bool = True,
+    limit: int = 50,
+) -> list[dict]:
+    """Saved places, best match first.
+
+    Matched anywhere in the name, not just at the start: an operator hearing
+    "kolleji" should find "Tibbiyot kolleji" without knowing what it starts
+    with. Names that *do* start with the query still sort first, because that
+    is usually what the operator meant.
+    """
+    stmt = select(
+        Place,
+        func.ST_Y(cast(Place.location, Geometry)),
+        func.ST_X(cast(Place.location, Geometry)),
+    )
+    if active_only:
+        stmt = stmt.where(Place.is_active.is_(True))
+
+    term = (q or "").strip()
+    if term:
+        like = f"%{term.lower()}%"
+        stmt = stmt.where(func.lower(Place.name).like(like))
+        stmt = stmt.order_by(
+            case((func.lower(Place.name).like(f"{term.lower()}%"), 0), else_=1),
+            func.lower(Place.name),
+        )
+    else:
+        stmt = stmt.order_by(func.lower(Place.name))
+
+    rows = (await db.execute(stmt.limit(limit))).all()
+    return [_place_row(p, lat, lng) for p, lat, lng in rows]
+
+
+async def get_place(db: AsyncSession, place_id: uuid.UUID) -> dict | None:
+    row = (await db.execute(
+        select(
+            Place,
+            func.ST_Y(cast(Place.location, Geometry)),
+            func.ST_X(cast(Place.location, Geometry)),
+        ).where(Place.id == place_id)
+    )).first()
+    if row is None:
+        return None
+    place, lat, lng = row
+    return _place_row(place, lat, lng)
+
+
+async def create_place(
+    db: AsyncSession,
+    admin_id: uuid.UUID,
+    *,
+    name: str,
+    lat: float,
+    lng: float,
+    address: str | None = None,
+    ip: str | None = None,
+) -> dict:
+    """Save a point under a name. Raises ValueError if the name is taken."""
+    name = name.strip()
+    if await _place_name_taken(db, name):
+        raise ValueError("Bu nom allaqachon saqlangan")
+
+    place = Place(
+        name=name,
+        address=(address or "").strip() or None,
+        location=point_wkt(lat, lng),
+        created_by=admin_id,
+    )
+    db.add(place)
+    await db.flush()
+    await log_action(
+        db, admin_id, "place_create", entity_type="place",
+        entity_id=str(place.id),
+        new_value={"name": name, "lat": lat, "lng": lng, "address": address},
+        ip_address=ip,
+    )
+    await db.commit()
+    return await get_place(db, place.id)  # type: ignore[return-value]
+
+
+async def update_place(
+    db: AsyncSession,
+    admin_id: uuid.UUID,
+    place_id: uuid.UUID,
+    *,
+    changes: dict,
+    ip: str | None = None,
+) -> dict | None:
+    place = await db.get(Place, place_id)
+    if place is None:
+        return None
+
+    before = {"name": place.name, "address": place.address, "is_active": place.is_active}
+    if "name" in changes:
+        name = str(changes["name"]).strip()
+        if await _place_name_taken(db, name, exclude=place_id):
+            raise ValueError("Bu nom allaqachon saqlangan")
+        place.name = name
+    if "address" in changes:
+        place.address = (changes["address"] or "").strip() or None
+    if "is_active" in changes:
+        place.is_active = bool(changes["is_active"])
+    # Both or neither: half a coordinate would move the pin into the sea.
+    if changes.get("lat") is not None and changes.get("lng") is not None:
+        place.location = point_wkt(float(changes["lat"]), float(changes["lng"]))
+
+    await log_action(
+        db, admin_id, "place_update", entity_type="place", entity_id=str(place_id),
+        old_value=before, new_value=changes, ip_address=ip,
+    )
+    await db.commit()
+    return await get_place(db, place_id)
+
+
+async def delete_place(
+    db: AsyncSession, admin_id: uuid.UUID, place_id: uuid.UUID, *, ip: str | None = None
+) -> bool:
+    """Remove a place for good.
+
+    Safe to delete outright: rides copy the name into their own address
+    columns, so no trip loses its history when a place goes.
+    """
+    place = await db.get(Place, place_id)
+    if place is None:
+        return False
+    snapshot = {"name": place.name, "address": place.address}
+    await db.delete(place)
+    await log_action(
+        db, admin_id, "place_delete", entity_type="place", entity_id=str(place_id),
+        old_value=snapshot, ip_address=ip,
+    )
+    await db.commit()
+    return True
+
+
+async def _place_name_taken(
+    db: AsyncSession, name: str, *, exclude: uuid.UUID | None = None
+) -> bool:
+    """Case-insensitive name check, mirroring the unique index.
+
+    Checked here so the operator gets "Bu nom allaqachon saqlangan" rather
+    than a constraint error; the index is what actually guarantees it when two
+    operators save the same name at once.
+    """
+    stmt = select(Place.id).where(func.lower(Place.name) == name.strip().lower())
+    if exclude is not None:
+        stmt = stmt.where(Place.id != exclude)
+    return (await db.execute(stmt.limit(1))).first() is not None

@@ -414,6 +414,18 @@ export interface RecentPickup {
   last_used_at: string | null;
 }
 
+/** A landmark saved under the name callers use for it. */
+export interface Place {
+  id: string;
+  name: string;
+  /** The street it resolved to — shown to operators, not to drivers. */
+  address: string | null;
+  lat: number;
+  lng: number;
+  is_active: boolean;
+  created_at: string | null;
+}
+
 export type FareMode = "fixed" | "meter";
 
 export interface CreateOrderInput {
