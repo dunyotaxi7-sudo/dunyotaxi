@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     # Broadcast dispatch: an order is offered to every eligible driver within
     # this radius at once (ranked nearest-first); the first to accept wins and
     # the rest have their offer revoked. broadcast_max_drivers caps the fan-out.
-    broadcast_radius_meters: int = 10000
+    broadcast_radius_meters: int = 3000
     broadcast_max_drivers: int = 20
 
     # List (marketplace) dispatch: orders sit in an open list drivers pick from.
