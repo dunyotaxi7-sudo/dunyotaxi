@@ -28,6 +28,31 @@ type PendingFix = { lat: number; lng: number; accuracy_m: number | null; ts: num
 const MAX_PENDING = 2000;
 let pending: PendingFix[] = [];
 
+// Whether this server understands a batch. An app can reach a phone before the
+// deploy reaches the server — a Play rollout cannot be sequenced against an
+// API release — and when that happened every fix 404'd, the buffer grew
+// forever, and the driver went dark with no way to tell why. One 404 is enough
+// to learn; from then on this process uses the endpoint every server has.
+let batchSupported = true;
+
+function postOne(
+  token: string,
+  fix: PendingFix,
+): Promise<Response> {
+  return fetch(`${API_URL}/driver/location`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      lat: fix.lat,
+      lng: fix.lng,
+      accuracy_m: fix.accuracy_m,
+    }),
+  });
+}
+
 function postBatch(token: string, fixes: PendingFix[]): Promise<Response> {
   return fetch(`${API_URL}/driver/location/batch`, {
     method: "POST",
@@ -118,7 +143,24 @@ TaskManager.defineTask(DRIVER_LOCATION_TASK, async ({ data, error }) => {
 
   try {
     const sending = pending;
+    if (!batchSupported) {
+      // Older server: it can only take one fix, so the backlog is dropped
+      // rather than held for a replay that will never be accepted. Being
+      // visible to dispatch matters more than a perfect distance.
+      const newest = sending[sending.length - 1];
+      const one = await postOne(access, newest);
+      if (one.ok) pending = [];
+      else if (one.status === 401) {
+        const fresh = await refreshAccess();
+        if (fresh && (await postOne(fresh, newest)).ok) pending = [];
+      }
+      return;
+    }
     const res = await postBatch(access, sending);
+    if (res.status === 404 || res.status === 405) {
+      batchSupported = false;
+      return; // the next fix, moments away, goes the old way
+    }
     if (res.ok) {
       // Only drop what was actually sent; a fix that arrived while the request
       // was in flight must not be lost with it.
