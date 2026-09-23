@@ -29,9 +29,11 @@ import type { OnlineDriver } from "@/lib/types";
 export type Loc = { lat: number; lng: number; address: string };
 type Which = "pickup" | "destination";
 
-// Operators pick points by clicking, and 280px made that fiddly — a misplaced
-// pin costs more time than the taller map costs screen space.
-const MAP_HEIGHT = 440;
+// Operators pick points by clicking, and a short map made that fiddly — a
+// misplaced pin costs more time than a tall map costs screen space. Sized off
+// the viewport so a big call-centre monitor gets a big map, with a floor that
+// keeps it usable on a laptop and a ceiling so it never outgrows the page.
+const MAP_CLASS = "h-[58vh] min-h-[440px] max-h-[760px]";
 
 // Marker colours, shared with the field dots so "A / blue" needs no explaining.
 const PICKUP_COLOR = "#2563eb";
@@ -383,7 +385,7 @@ function YandexMap({
   }, [pickup, destination, state]);
 
   return (
-    <div className="card overflow-hidden relative" style={{ height: MAP_HEIGHT }}>
+    <div className={`card overflow-hidden relative ${MAP_CLASS}`}>
       <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
       {state === "loading" && (
         <div className="absolute inset-0 flex items-center justify-center text-sm text-muted bg-[var(--surface)]">
